@@ -1,0 +1,6 @@
+*.ipynb
+.ipynb*
+config.py
+.env
+*.egg-info
+dist

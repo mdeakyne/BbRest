@@ -8,6 +8,8 @@ maya = "*"
 requests = "*"
 
 [dev-packages]
+jupyterlab = "*"
+aiohttp = '*'
+twine = '*'
 
-[requires]
-python_version = "3.6"
+
