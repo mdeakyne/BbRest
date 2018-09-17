@@ -1,7 +1,6 @@
 import maya
 import requests
 import re
-import pickle
 import types
 
 class BbRest:
@@ -51,25 +50,22 @@ class BbRest:
 
         #use the functions that exist in functions.p,
         #or retrieve from the swagger_json definitions
-        try:
-            functions = pickle.load(open('functions.p','rb'))
-        except:
-            print('Couldnt find existing file')
-            swagger_json = requests.get('https://developer.blackboard.com/portal/docs/apis/learn-swagger.json').json()
-            p = r'\d+.\d+.\d+'
-            functions = []
-            for path in swagger_json['paths']:
-                for call in swagger_json['paths'][path].keys():
-                    meta = swagger_json['paths'][path][call]
-                    functions.append(
-                        {'summary':meta['summary'].replace(' ',''),
-                         'description':meta['description'],
-                         'parameters':meta['parameters'],
-                          'method':call,
-                          'path':path,
-                          'version':re.findall(p,meta['description'])
-                        })
-            pickle.dump(file=open('functions.p','wb'),obj=swagger_json)
+    
+        swagger_json = requests.get('https://developer.blackboard.com/portal/docs/apis/learn-swagger.json').json()
+        p = r'\d+.\d+.\d+'
+        functions = []
+        for path in swagger_json['paths']:
+            for call in swagger_json['paths'][path].keys():
+                meta = swagger_json['paths'][path][call]
+                functions.append(
+                    {'summary':meta['summary'].replace(' ',''),
+                        'description':meta['description'],
+                        'parameters':meta['parameters'],
+                        'method':call,
+                        'path':path,
+                        'version':re.findall(p,meta['description'])
+                    })
+       
 
         #store all functions in a class visible list
         self.__all_functions = functions
