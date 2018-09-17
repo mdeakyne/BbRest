@@ -5,3 +5,4 @@ config.py
 *.egg-info
 dist
 .DS_STORE
+bbrest/__pycache__
