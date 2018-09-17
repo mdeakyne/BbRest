@@ -4,3 +4,4 @@ config.py
 .env
 *.egg-info
 dist
+.DS_STORE
