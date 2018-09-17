@@ -28,13 +28,9 @@ This is also a work in progress, and probably will be built out separately.
 ## Installation
 Install pipenv
 ```bash
-$ pip3 install pipenv
-```
-
-Then, in the cloned bbrest folder
-```bash
 $ pipenv --three
-$ pipenv install
+$ pipenv install bbrest
+$ pipenv shell
 ```
 
 This will create a virtual environment with python 3 and the dependencies of this project
@@ -43,8 +39,8 @@ This will create a virtual environment with python 3 and the dependencies of thi
 
 ### Setup
 ```python
+from bbrest.bbrest import BbRest
 bb = BbRest(key, secret, url)
-bb.supported_functions() #generates class methods from bb documentation
 ```
 ### Session Management
 ```python
