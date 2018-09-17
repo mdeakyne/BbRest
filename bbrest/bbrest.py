@@ -69,7 +69,7 @@ class BbRest:
                           'path':path,
                           'version':re.findall(p,meta['description'])
                         })
-            pickle.dump(file=open('functions.p','wb'),obj=functions)
+            pickle.dump(file=open('functions.p','wb'),obj=swagger_json)
 
         #store all functions in a class visible list
         self.__all_functions = functions
