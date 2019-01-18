@@ -2,6 +2,9 @@ import maya
 import requests
 import re
 import types
+import asyncio
+import aiohttp
+
 
 class BbRest:
     session = ''
@@ -73,8 +76,11 @@ class BbRest:
         self.method_generator()
 
     def is_supported(self, function):
+        if not function['version']:
+            return False
+        
         start = function['version'][0]
-
+        
         if len(function['version']) == 1:
             return start <= self.version
         else:
@@ -137,7 +143,7 @@ class BbRest:
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
 
-            exec(f"""def {function}({def_param_string}): return self.call('{function}', **clean_kwargs({param_string}))""")
+            exec(f"""async def {function}({def_param_string}): return await self.call('{function}', **clean_kwargs({param_string}))""")
             exec(f"""{function}.__doc__ = '''{description}\nParameters:\n{parameters}\n '''""")
             exec(f"""self.{function} = types.MethodType({function},self)""")   
 
@@ -151,21 +157,26 @@ class BbRest:
         :rtype: requests.Response
         '''
         method = self.functions[summary]['method']
-        path = self.functions[summary]['path']
-        kwargs.setdefault('params','')
-        kwargs.setdefault('payload','')
-
-        req = requests.Request(method=method, url=f'{self.__url}{path}')
-        req.url = req.url.format(**kwargs)
-        req.params = kwargs['params']
-        req.json = kwargs['payload']
+        path = self.__url + self.functions[summary]['path']
+        url = path.format(**kwargs)
+        params = kwargs.get('params',  '')
+        payload = kwargs.get('payload', '')
+        asynchronous = kwargs.get('sync', False)
 
         if self.is_expired():
             self.refresh_token()
 
-        prepped = self.session.prepare_request(req)
+        if not asynchronous:
+            req = requests.Request(method=method, url=f'{self.__url}{path}')
+            req.url = req.url.format(**kwargs)
+            req.params = kwargs['params']
+            req.json = kwargs['payload']
+
+            prepped = self.session.prepare_request(req)
         
-        return self.session.send(prepped)
+            return self.session.send(prepped)
+        else:
+            return "Asynch Keyword Worked OK"
 
     def get_all(self, summary, **kwargs):
         r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.

@@ -6,3 +6,5 @@ config.py
 dist
 .DS_STORE
 bbrest/__pycache__
+.venv
+.idea

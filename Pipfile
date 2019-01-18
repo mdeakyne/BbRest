@@ -6,9 +6,11 @@ name = "pypi"
 [packages]
 maya = "*"
 requests = "*"
-twine = "*"
+aiohttp = "*"
+ipython = "==7.2.0"
 
 [dev-packages]
 jupyterlab = "*"
-aiohttp = '*'
 twine = '*'
+ipython = "==7.2.0"
+
