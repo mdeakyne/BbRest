@@ -5,7 +5,6 @@ import types
 import asyncio
 import aiohttp
 
-
 class BbRest:
     session = ''
     expiration_epoch = ''
@@ -54,7 +53,7 @@ class BbRest:
         #use the functions that exist in functions.p,
         #or retrieve from the swagger_json definitions
     
-        swagger_json = requests.get('https://developer.blackboard.com/portal/docs/apis/learn-swagger.json').json()
+        swagger_json = requests.get(f'https://developer.blackboard.com/portal/docs/apis/learn-swagger-{version}.json').json()
         p = r'\d+.\d+.\d+'
         functions = []
         for path in swagger_json['paths']:
@@ -66,7 +65,7 @@ class BbRest:
                         'parameters':meta['parameters'],
                         'method':call,
                         'path':path,
-                        'version':re.findall(p,meta['description'])
+                        #'version':re.findall(p,meta['description'])
                     })
        
 
@@ -98,8 +97,9 @@ class BbRest:
         """
 
         #filter out unsupported rest calls, based on current version
-        functions = [f for f in self.__all_functions if self.is_supported(f)]
-    
+        #functions = [f for f in self.__all_functions if self.is_supported(f)]
+        functions = [f for f in self.__all_functions]
+        
         #generate a dictionary of supported methods
         d_functions = {}
         for function in functions:
@@ -143,10 +143,34 @@ class BbRest:
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
 
-            exec(f"""async def {function}({def_param_string}): return await self.call('{function}', **clean_kwargs({param_string}))""")
+            exec(f"""def {function}({def_param_string}): return self.call('{function}', **clean_kwargs({param_string}))""")
             exec(f"""{function}.__doc__ = '''{description}\nParameters:\n{parameters}\n '''""")
-            exec(f"""self.{function} = types.MethodType({function},self)""")   
-
+            exec(f"""self.{function} = types.MethodType({function},self)""")  
+            
+            
+            #One way to get async methods is to generate them all
+            #I opted to use a keyword argument instead, asynch, 
+            #to reduce the number of methods.
+            
+            #exec(f"""async def {function}Async({def_param_string}): return await self.acall('{function}', **clean_kwargs({param_string}))""")
+            #exec(f"""{function}Async.__doc__ = '''{description}\nParameters:\n{parameters}\n '''""")
+            #exec(f"""self.{function}Async = types.MethodType({function}Async,self)""")  
+            
+        
+    async def acall(self, summary, **kwargs):
+        if self.is_expired():
+            self.refresh_token()
+        kwargs = clean_kwargs(**kwargs)
+        method = self.functions[summary]['method']
+        path = self.__url + self.functions[summary]['path']
+        url = path.format(**kwargs)
+        params = kwargs.get('params',  '')
+        payload = kwargs.get('payload', '')
+        
+        async with aiohttp.ClientSession(headers=self.session.headers) as session:
+            async with session.request(method, url=url, json=payload, params=params) as resp:
+                return await resp.json()
+    
     def call(self, summary, **kwargs):
         r'''   Constructs and sends a :class:`Request <Request>`.
         :param summary: method for the new `Request` .
@@ -156,27 +180,27 @@ class BbRest:
         :return: :class:`Response <Response>` object
         :rtype: requests.Response
         '''
+        if kwargs.get('asynch','') == True:
+            return self.acall(summary, **kwargs)
+        
         method = self.functions[summary]['method']
         path = self.__url + self.functions[summary]['path']
         url = path.format(**kwargs)
         params = kwargs.get('params',  '')
         payload = kwargs.get('payload', '')
-        asynchronous = kwargs.get('sync', False)
 
         if self.is_expired():
             self.refresh_token()
 
-        if not asynchronous:
-            req = requests.Request(method=method, url=f'{self.__url}{path}')
-            req.url = req.url.format(**kwargs)
-            req.params = kwargs['params']
-            req.json = kwargs['payload']
-
-            prepped = self.session.prepare_request(req)
         
-            return self.session.send(prepped)
-        else:
-            return "Asynch Keyword Worked OK"
+        req = requests.Request(method=method, 
+                               url=url,
+                              params = params,
+                              json = payload)
+
+        prepped = self.session.prepare_request(req)
+
+        return self.session.send(prepped)
 
     def get_all(self, summary, **kwargs):
         r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.
@@ -214,6 +238,48 @@ class BbRest:
             else:
                 offset += limit
 
+        return results
+    
+    async def get_all_async(self, summary, **kwargs):
+        r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.
+        :param summary: method for the Get `Request` .
+        :param params: (optional) Dictionary, list of tuples or bytes to send
+            in the body of the :class:`Request`.
+        :param max_limit: (optional) total number of JSON objects to return.
+        :param limit: (optional) number of JSON objects to fetch each call.
+        :return: list of either max_limit, or total json objects.
+        :rtype: list of (json)
+        '''
+        if 'Get' not in summary:
+            print('This only works for Get Calls')
+            return []
+
+        results = []
+        offset = 0
+
+        max_limit = kwargs.get('max_limit',1000)
+        kwargs['params'] = kwargs.get('params', {})
+
+        limit = kwargs.get('limit',100)
+        kwargs['params']['limit'] = limit
+        
+        tasks = []
+        print(limit)
+        for i in range(0,max_limit,limit): 
+            tasks.append(bb.acall('GetCourseMemberships',
+                                  courseId='TST-101', 
+                                  params={'limit':limit, 
+                                  'offset':i}))
+
+        resps = await asyncio.gather(*tasks)
+        
+        results = []
+        print(len(resps))
+        for resp in resps:
+            if 'results' in resp:
+                print(len(resp['results']))
+                results.extend(resp['results'])
+        
         return results
 
     def is_expired(self):
@@ -280,4 +346,3 @@ def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwar
                 kwargs['groupId'] = groupId
 
         return kwargs
-
