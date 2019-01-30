@@ -169,7 +169,7 @@ class BbRest:
         
         async with aiohttp.ClientSession(headers=self.session.headers) as session:
             async with session.request(method, url=url, json=payload, params=params) as resp:
-                return await resp.json()
+                return await resp
     
     def call(self, summary, **kwargs):
         r'''   Constructs and sends a :class:`Request <Request>`.
