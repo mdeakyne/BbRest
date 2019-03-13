@@ -249,7 +249,7 @@ class BbRest:
         '''
         if 'Get' not in summary:
             print('This only works for Get Calls')
-            return []
+            return {'status':'401', 'message':'This only works for GET calls'}
 
         results = []
         offset = 0
@@ -261,9 +261,9 @@ class BbRest:
         kwargs['params']['limit'] = limit
         
         tasks = []
-        print(limit)
+        #print(limit)
         for i in range(0,max_limit,limit): 
-            tasks.append(bb.acall('GetCourseMemberships',
+            tasks.append(self.acall('GetCourseMemberships',
                                   courseId='TST-101', 
                                   params={'limit':limit, 
                                   'offset':i}))
@@ -271,10 +271,10 @@ class BbRest:
         resps = await asyncio.gather(*tasks)
         
         results = []
-        print(len(resps))
+        #print(len(resps))
         for resp in resps:
             if 'results' in resp:
-                print(len(resp['results']))
+                #print(len(resp['results']))
                 results.extend(resp['results'])
         
         return results
