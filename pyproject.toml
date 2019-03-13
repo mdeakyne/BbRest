@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bbrest"
-version = "0.2.4"
+version = "0.2.5"
 description = "Blackboard REST API for Humans"
 authors = ["Matt Deakyne <m.d@ku.edu>"]
 readme = 'README.md'
