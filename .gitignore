@@ -8,3 +8,5 @@ dist
 bbrest/__pycache__
 .venv
 .idea
+*transcrypt*
+.vscode*
