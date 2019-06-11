@@ -160,12 +160,15 @@ class BbRest:
     async def acall(self, summary, **kwargs):
         if self.is_expired():
             self.refresh_token()
-        kwargs = clean_kwargs(**kwargs)
         method = self.functions[summary]['method']
         path = self.__url + self.functions[summary]['path']
         url = path.format(**kwargs)
         params = kwargs.get('params',  '')
         payload = kwargs.get('payload', '')
+
+        async with aiohttp.ClientSession(headers=self.session.headers) as session:
+            async with session.request(method, url=url, json=payload, params=params) as resp:
+                return await resp.json()
 
     
     def call(self, summary, **kwargs):
