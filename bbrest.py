@@ -11,15 +11,19 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url):
+    def __init__(self, key, secret, url, headers=None):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
         self.__url = url
+        self.__headers = headers
 
         #Authenticate the session
         session = requests.Session()
         payload = {'grant_type':'client_credentials'}
+
+        if self.__headers:
+            session.headers.update(self.__headers)
 
         #Sends a post to get the authentication token
         r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
