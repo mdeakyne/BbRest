@@ -10,3 +10,4 @@ bbrest/__pycache__
 .idea
 *transcrypt*
 *.vscode*
+__pycache__
