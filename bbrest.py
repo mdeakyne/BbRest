@@ -148,8 +148,9 @@ class BbRest:
             
             #put, post, patch
             if functions[function]['method'][0] == 'p':
-                def_params += ['payload= {}']
-                params += ['payload= {}']
+                def_params.insert(-1,'payload= {}')
+            if functions[function]['method'] == 'Get':
+                def_params.insert(-1, 'params={}')
 
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
