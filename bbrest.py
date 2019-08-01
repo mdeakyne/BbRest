@@ -46,7 +46,9 @@ class BbRest:
         #get the current version via a REST call
         r = self.session.get(f'{url}/learn/api/public/v1/system/version')
         if r.status_code == 200:
-            version = f"{r.json()['learn']['major']}.0.0" #Ignore incremental
+            major = r.json()['learn']['major']
+            minor = r.json()['learn']['minor']
+            version = f"{major}.{minor}.0" #Ignore incremental patches
         else:
             print(f"Could not retrieve version, error code: {r.status_code}")
             version = '3000.0.0' #Version wasn't supported until 3000.3.0
