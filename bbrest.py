@@ -143,14 +143,16 @@ class BbRest:
             parameters = functions[function]['parameters']
             
             p = r'{\w+}'
-            def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]+['**kwargs']
-            params = [param[1:-1]+'= '+param[1:-1] for param in re.findall(p,path)]+['**kwargs']
+            def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]
+            params = [param[1:-1]+'= '+param[1:-1] for param in re.findall(p,path)]
             
             #put, post, patch
             if functions[function]['method'][0] == 'p':
-                def_params.insert(-1,'payload= {}')
-            if functions[function]['method'] == 'Get':
-                def_params.insert(-1, 'params={}')
+                def_params.append('payload= {}')
+                params.append('payload= payload')
+            if functions[function]['method'] == 'get':
+                def_params.append('params= {}')
+                params.append('params= params')
 
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
@@ -175,8 +177,8 @@ class BbRest:
         method = self.functions[summary]['method']
         path = self.__url + self.functions[summary]['path']
         url = path.format(**kwargs)
-        params = kwargs.get('params',  '')
-        payload = kwargs.get('payload', '')
+        params = kwargs.get('params',  {})
+        payload = kwargs.get('payload', {})
 
         async with aiohttp.ClientSession(headers=self.session.headers) as session:
             async with session.request(method, url=url, json=payload, params=params) as resp:
@@ -198,8 +200,8 @@ class BbRest:
         method = self.functions[summary]['method']
         path = self.__url + self.functions[summary]['path']
         url = path.format(**kwargs)
-        params = kwargs.get('params',  '')
-        payload = kwargs.get('payload', '')
+        params = kwargs.get('params', {})
+        payload = kwargs.get('payload', {})
 
         if self.is_expired():
             self.refresh_token()
