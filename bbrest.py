@@ -145,6 +145,11 @@ class BbRest:
             p = r'{\w+}'
             def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]+['**kwargs']
             params = [param[1:-1]+'= '+param[1:-1] for param in re.findall(p,path)]+['**kwargs']
+            
+            #put, post, patch
+            if functions[function]['method'][0] == 'p':
+                def_params += 'payload= {}'
+                params += 'payload= {}'
 
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
