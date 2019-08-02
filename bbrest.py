@@ -336,27 +336,30 @@ class BbRest:
 def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwargs):
         if userId:
             if userId[0] != '_' and ':' not in userId:
-                kwargs['userId'] = 'userName:{username}'.format(username=userId)
+                kwargs['userId'] = f'userName:{userId}'
 
             else:
                 kwargs['userId'] = userId
 
         if courseId:
             if courseId[0] != '_' and ':' not in courseId:
-                kwargs['courseId'] = 'courseId:{courseId}'.format(courseId=courseId)
+                kwargs['courseId'] = f'courseId:{courseId}'
             else:
                 kwargs['courseId'] = courseId
 
         if columnId:
             if columnId[0] != '_' and columnId != 'finalGrade':
-                kwargs['columnId'] = 'externalId:{columnId}'.format(columnId=columnId)
+                kwargs['columnId'] = f'externalId:{columnId}'
             else:
                 kwargs['columnId'] = columnId
 
         if groupId:
             if groupId[0] != '_':
-                kwargs['groupId'] = 'externalId:{groupId}'.format(groupId=groupId)
+                kwargs['groupId'] = f'externalId:{groupId}'
             else:
                 kwargs['groupId'] = groupId
 
         return kwargs
+
+def clean_params(parameters):
+    return parameters
