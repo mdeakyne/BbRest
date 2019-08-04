@@ -146,13 +146,19 @@ class BbRest:
             def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]
             params = [param[1:-1]+'= '+param[1:-1] for param in re.findall(p,path)]
             
-            #put, post, patch
+            #put, post, patch methods have payload as an argument
+            #get has params as an argument 
             if functions[function]['method'][0] == 'p':
                 def_params.append('payload= {}')
                 params.append('payload= payload')
+            
             if functions[function]['method'] == 'get':
                 def_params.append('params= {}')
                 params.append('params= params')
+
+                if function[-1] == 's':
+                    def_params.append('limit= 100')
+                    params.append('limit= limit')
 
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
@@ -196,12 +202,14 @@ class BbRest:
         '''
         if kwargs.get('asynch','') == True:
             return self.acall(summary, **kwargs)
+
         
         method = self.functions[summary]['method']
         path = self.__url + self.functions[summary]['path']
         url = path.format(**kwargs)
         params = kwargs.get('params', {})
         payload = kwargs.get('payload', {})
+        limit = kwargs.get('limit', 100)
 
         if self.is_expired():
             self.refresh_token()
@@ -213,8 +221,25 @@ class BbRest:
                               json = payload)
 
         prepped = self.session.prepare_request(req)
+        resp = self.session.send(prepped).json()
+        cur_resp = resp
+        
+        if 'results' in cur_resp:
+            while 'paging' in cur_resp and len(resp['results']) < limit:
+                next_page = self.__url + cur_resp['paging']['nextPage']
+                req = requests.Request(method=method, 
+                               url=next_page)
+                prepped = self.session.prepare_request(req)
+                cur_resp = self.session.send(prepped).json()
+                if 'results' in cur_resp:
+                    resp['results'].extend(cur_resp['results'])
+            if len(resp['results']) > limit:
+                resp['results'] = resp['results'][:limit]
+                vals = resp['paging']['nextPage'].split('=')
+                vals[-1] = str(limit)
+                resp['paging']['nextPage'] = '='.join(vals)
 
-        return self.session.send(prepped)
+        return resp
 
     def get_all(self, summary, **kwargs):
         r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.
