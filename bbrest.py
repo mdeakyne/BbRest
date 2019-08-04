@@ -160,6 +160,9 @@ class BbRest:
                     def_params.append('limit= 100')
                     params.append('limit= limit')
 
+            def_params.append('sync= True')
+            params.append('sync= sync')
+
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
 
@@ -185,12 +188,42 @@ class BbRest:
         url = path.format(**kwargs)
         params = kwargs.get('params',  {})
         payload = kwargs.get('payload', {})
+        limit = kwargs.get('limit', 100)
 
-        async with aiohttp.ClientSession(headers=self.session.headers) as session:
-            async with session.request(method, url=url, json=payload, params=params) as resp:
-                return await resp.json()
+        if limit == 100:
+            async with aiohttp.ClientSession(headers=self.session.headers) as session:
+                async with session.request(method, url=url, json=payload, params=params) as resp:
+                    return await resp.json()
 
-    
+        tasks = []
+        print(f'Limit is {limit}')
+        for i in range(0,limit,100):
+            params['limit'] = 100
+            params['offset'] = i
+            #print(params)
+            tasks.append(self.acall(summary, 
+                                  params=params))
+
+
+        resps = await asyncio.gather(*tasks)
+        
+        results = []
+        #print(len(resps))
+        for resp in resps:
+            if 'results' in resp:
+                #print(len(resp['results']))
+                results.extend(resp['results'])
+        
+        resp = {'results':results[:limit]}
+        if 'paging' in resps[-1]:
+            last_resp = resps[-1]
+            vals = last_resp['paging']['nextPage'].split('=')
+            vals[-1] = str(limit)
+            resp['paging'] = {'nextPage': '='.join(vals)}
+
+        return resp
+
+
     def call(self, summary, **kwargs):
         r'''   Constructs and sends a :class:`Request <Request>`.
         :param summary: method for the new `Request` .
@@ -200,7 +233,7 @@ class BbRest:
         :return: :class:`Response <Response>` object
         :rtype: requests.Response
         '''
-        if kwargs.get('asynch','') == True:
+        if kwargs.get('sync','') != True:
             return self.acall(summary, **kwargs)
 
         
@@ -221,9 +254,14 @@ class BbRest:
                               json = payload)
 
         prepped = self.session.prepare_request(req)
+        
+        #delete doesn't return json... for some reason
+        if method == 'delete':
+            return self.session.send(prepped)
+        
         resp = self.session.send(prepped).json()
         cur_resp = resp
-        
+
         if 'results' in cur_resp:
             while 'paging' in cur_resp and len(resp['results']) < limit:
                 next_page = self.__url + cur_resp['paging']['nextPage']
@@ -241,86 +279,7 @@ class BbRest:
 
         return resp
 
-    def get_all(self, summary, **kwargs):
-        r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.
-        :param summary: method for the Get `Request` .
-        :param params: (optional) Dictionary, list of tuples or bytes to send
-            in the body of the :class:`Request`.
-        :param max_limit: (optional) total number of JSON objects to return.
-        :param limit: (optional) number of JSON objects to fetch each call.
-        :return: list of either max_limit, or total json objects.
-        :rtype: list of (json)
-        '''
-        if 'Get' not in summary:
-            print('This only works for Get Calls')
-            return []
-
-        results = []
-        offset = 0
-
-        max_limit = kwargs.get('max_limit',1000)
-        kwargs['params'] = kwargs.get('params', {})
-
-        limit = kwargs.get('limit',100)
-        kwargs['params']['limit'] = limit
-
-        while offset < max_limit:
-            kwargs['params']['offset'] = offset
-            r = self.call(summary, **kwargs)
-            r_json = r.json()
-            if 'results' in r_json:
-                results.extend(r.json()['results'])
-
-            if 'paging' not in r_json:
-                break
-
-            else:
-                offset += limit
-
-        return results
     
-    async def get_all_async(self, summary, **kwargs):
-        r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.
-        :param summary: method for the Get `Request` .
-        :param params: (optional) Dictionary, list of tuples or bytes to send
-            in the body of the :class:`Request`.
-        :param max_limit: (optional) total number of JSON objects to return.
-        :param limit: (optional) number of JSON objects to fetch each call.
-        :return: list of either max_limit, or total json objects.
-        :rtype: list of (json)
-        '''
-        if 'Get' not in summary:
-            print('This only works for Get Calls')
-            return {'status':'401', 'message':'This only works for GET calls'}
-
-        results = []
-        offset = 0
-
-        max_limit = kwargs.get('max_limit',1000)
-        kwargs['params'] = kwargs.get('params', {})
-
-        limit = kwargs.get('limit',100)
-        kwargs['params']['limit'] = limit
-        
-        tasks = []
-        #print(limit)
-        for i in range(0,max_limit,limit): 
-            tasks.append(self.acall('GetCourseMemberships',
-                                  courseId='TST-101', 
-                                  params={'limit':limit, 
-                                  'offset':i}))
-
-        resps = await asyncio.gather(*tasks)
-        
-        results = []
-        #print(len(resps))
-        for resp in resps:
-            if 'results' in resp:
-                #print(len(resp['results']))
-                results.extend(resp['results'])
-        
-        return results
-
     def is_expired(self):
         return maya.now() > self.expiration_epoch
 
