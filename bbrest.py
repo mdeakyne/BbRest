@@ -157,7 +157,7 @@ class BbRest:
                 def_params.append('params= {}')
                 params.append('params= params')
 
-                if function[-1] == 's' or function[-8:] == "Children":
+                if function[-1] == 's' or function.endswith("Children"):
                     def_params.append('limit= 100')
                     params.append('limit= limit')
 
