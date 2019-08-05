@@ -4,6 +4,7 @@ import re
 import types
 import asyncio
 import aiohttp
+import urllib
 
 class BbRest:
     session = ''
@@ -192,34 +193,36 @@ class BbRest:
 
         if limit == 100:
             async with aiohttp.ClientSession(headers=self.session.headers) as session:
+                print(url, params)
                 async with session.request(method, url=url, json=payload, params=params) as resp:
                     return await resp.json()
 
         tasks = []
         print(f'Limit is {limit}')
         for i in range(0,limit,100):
-            params['limit'] = 100
-            params['offset'] = i
-            #print(params)
-            tasks.append(self.acall(summary, 
-                                  params=params))
+            new_params = params.copy()
+            new_params['limit'] = 100
+            new_params['offset'] = i
+            tasks.append(self.acall(summary, params=new_params))
 
 
         resps = await asyncio.gather(*tasks)
         
         results = []
-        #print(len(resps))
+        print(f'There are {len(resps)} responses')
         for resp in resps:
             if 'results' in resp:
-                #print(len(resp['results']))
+                print(f"There are {len(resp['results'])} results in this response")
                 results.extend(resp['results'])
+                print(len(results))
         
-        resp = {'results':results[:limit]}
-        if 'paging' in resps[-1]:
-            last_resp = resps[-1]
-            vals = last_resp['paging']['nextPage'].split('=')
-            vals[-1] = str(limit)
-            resp['paging'] = {'nextPage': '='.join(vals)}
+        if len(results) > limit:
+            resp = {'results':results[:limit]}
+            params['offset'] = limit
+            resp['paging'] = {'nextPage': f'{url}?{urllib.parse.urlencode(params)}'}
+        else:
+            resp = {'results':results}
+
 
         return resp
 
