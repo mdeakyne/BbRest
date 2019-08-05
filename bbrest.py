@@ -193,7 +193,7 @@ class BbRest:
 
         if limit == 100:
             async with aiohttp.ClientSession(headers=self.session.headers) as session:
-                print(url, params)
+                #print(url, params)
                 async with session.request(method, url=url, json=payload, params=params) as resp:
                     return await resp.json()
 
@@ -209,12 +209,12 @@ class BbRest:
         resps = await asyncio.gather(*tasks)
         
         results = []
-        print(f'There are {len(resps)} responses')
+        #print(f'There are {len(resps)} responses')
         for resp in resps:
             if 'results' in resp:
-                print(f"There are {len(resp['results'])} results in this response")
+                #print(f"There are {len(resp['results'])} results in this response")
                 results.extend(resp['results'])
-                print(len(results))
+                #print(len(results))
         
         if len(results) > limit:
             resp = {'results':results[:limit]}
