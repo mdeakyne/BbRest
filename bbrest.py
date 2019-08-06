@@ -129,7 +129,7 @@ class BbRest:
 
             if method == 'post':
                 parameters = clean_params(parameters)
-                
+
             d_functions[summary] = {'method':method,
                                     'path':path,
                                     'description':description,
@@ -352,8 +352,12 @@ def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwar
         return kwargs
 
 def clean_params(parameters):
+    ret_string = ''
     params = [param['schema'] for param in parameters if 'schema' in param]
-    required = params[0]['required']
+    if not params:
+        return parameters
+
+    required = params[0].get('required', [])
     props = params[0]['properties']
     for key in props:
         prop_key = f'{key} -optional '
@@ -377,5 +381,5 @@ def clean_params(parameters):
             items_str = f'\n\titems: {prop_items}'
         
         
-        return f'-----------------\n{prop_key}{type_str}{desc_str}{enum_str}{items_str}\n-----------------'
-            
+        ret_string += f'-----------------\n{prop_key}{type_str}{desc_str}{enum_str}{items_str}\n-----------------'
+    return ret_string    
