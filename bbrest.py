@@ -127,6 +127,9 @@ class BbRest:
                 elif summary == 'GetMemberships' and 'courseId' in path:
                     summary = 'GetCourseMemberships'
 
+            if method == 'post':
+                parameters = clean_params(parameters)
+                
             d_functions[summary] = {'method':method,
                                     'path':path,
                                     'description':description,
@@ -349,4 +352,30 @@ def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwar
         return kwargs
 
 def clean_params(parameters):
-    return parameters
+    params = [param['schema'] for param in parameters if 'schema' in param]
+    required = params[0]['required']
+    props = params[0]['properties']
+    for key in props:
+        prop_key = f'{key} -optional '
+        if key in required:
+            prop_key=f'{key} **required**'
+        prop_type = props[key].get("type","")
+        prop_desc = props[key].get("description","")
+        prop_enum = props[key].get("enum", "")
+        prop_items = props[key].get("items")
+        
+        enum_str = ''
+        items_str = ''
+        
+        if prop_type:
+            type_str = f'\n\ttype: {prop_type}'
+        if prop_desc:
+            desc_str = f'\n\tdescription: {prop_desc}'
+        if prop_enum:
+            enum_str = f'\n\tenum: {prop_enum}'
+        if prop_items:
+            items_str = f'\n\titems: {prop_items}'
+        
+        
+        return f'-----------------\n{prop_key}{type_str}{desc_str}{enum_str}{items_str}\n-----------------'
+            
