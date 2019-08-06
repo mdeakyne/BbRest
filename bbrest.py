@@ -382,4 +382,5 @@ def clean_params(parameters):
         
         
         ret_string += f'-----------------\n{prop_key}{type_str}{desc_str}{enum_str}{items_str}\n-----------------'
+    
     return ret_string    
