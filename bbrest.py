@@ -1,6 +1,5 @@
 import maya
 import requests
-import re
 import types
 import asyncio
 import aiohttp
@@ -12,7 +11,7 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url, headers=None):
+    def __init__(self, key, secret, url, headers=None, threelegoauth=False):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
