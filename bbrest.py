@@ -4,6 +4,7 @@ import types
 import asyncio
 import aiohttp
 import urllib
+import re
 
 class BbRest:
     session = ''
