@@ -1,8 +1,11 @@
 import maya
 import requests
+from requests.models import Response
+import json
 import types
 import asyncio
 import aiohttp
+from aiohttp import web
 import urllib
 import re
 
@@ -196,12 +199,15 @@ class BbRest:
 
         if limit == 100:
             async with aiohttp.ClientSession(headers=self.session.headers) as session:
-                #print(url, params)
                 async with session.request(method, url=url, json=payload, params=params) as resp:
-                    return await resp.json()
+                    ret_resp = Response()
+                    ret_resp.status_code = resp.status
+                    ret_resp.error_type = resp.reason
+                    ret_resp._content = await resp.read()
+                    
+                    return ret_resp
 
         tasks = []
-        print(f'Limit is {limit}')
         for i in range(0,limit,100):
             new_params = params.copy()
             new_params['limit'] = 100
@@ -210,14 +216,13 @@ class BbRest:
 
 
         resps = await asyncio.gather(*tasks)
-        
+        resps_json = [resp.json() for resp in resps]
         results = []
-        #print(f'There are {len(resps)} responses')
-        for resp in resps:
+        for resp in resps_json:
             if 'results' in resp:
-                #print(f"There are {len(resp['results'])} results in this response")
+                print(f"There are {len(resp['results'])} results in this response")
                 results.extend(resp['results'])
-                #print(len(results))
+                print(len(results))
         
         if len(results) > limit:
             resp = {'results':results[:limit]}
@@ -226,8 +231,10 @@ class BbRest:
         else:
             resp = {'results':results}
 
-
-        return resp
+        ret_resp = Response()
+        ret_resp.status_code = 200
+        ret_resp._content = json.dumps(resp).encode('utf-8')
+        return ret_resp
 
 
     def call(self, summary, **kwargs):
@@ -280,9 +287,9 @@ class BbRest:
                 vals = resp['paging']['nextPage'].split('=')
                 vals[-1] = str(limit)
                 resp['paging']['nextPage'] = '='.join(vals)
-
+        
         return resp
-
+        
     
     def is_expired(self):
         return maya.now() > self.expiration_epoch
