@@ -14,6 +14,7 @@ aiohttp = "*"
 [tool.poetry.dev-dependencies]
 jupyterlab = "*"
 ipython = "^7.2"
+requests-oauthlib = "^1.2"
 
 
 

@@ -72,7 +72,7 @@ class BbRest:
                         'parameters':meta['parameters'],
                         'method':call,
                         'path':path,
-                        #'version':re.findall(p,meta['description'])
+                        'version':re.findall(p,meta['description'])
                     })
        
 
@@ -104,8 +104,8 @@ class BbRest:
         """
 
         #filter out unsupported rest calls, based on current version
-        #functions = [f for f in self.__all_functions if self.is_supported(f)]
-        functions = [f for f in self.__all_functions]
+        functions = [f for f in self.__all_functions if self.is_supported(f)]
+        #functions = [f for f in self.__all_functions]
         
         #generate a dictionary of supported methods
         d_functions = {}
@@ -262,14 +262,12 @@ class BbRest:
         prepped = self.session.prepare_request(req)
         
         #delete doesn't return json... for some reason
-        if method == 'delete':
-            return self.session.send(prepped)
         
-        resp = self.session.send(prepped).json()
-        cur_resp = resp
+        resp = self.session.send(prepped)
+        cur_resp = resp.json()
 
         if 'results' in cur_resp:
-            while 'paging' in cur_resp and len(resp['results']) < limit:
+            while 'paging' in cur_resp and len(resp.json()['results']) < limit:
                 next_page = self.__url + cur_resp['paging']['nextPage']
                 req = requests.Request(method=method, 
                                url=next_page)
