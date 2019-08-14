@@ -220,9 +220,9 @@ class BbRest:
         results = []
         for resp in resps_json:
             if 'results' in resp:
-                print(f"There are {len(resp['results'])} results in this response")
+                #print(f"There are {len(resp['results'])} results in this response")
                 results.extend(resp['results'])
-                print(len(results))
+                #print(len(results))
         
         if len(results) > limit:
             resp = {'results':results[:limit]}
