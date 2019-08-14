@@ -272,6 +272,7 @@ class BbRest:
         
         resp = self.session.send(prepped)
         cur_resp = resp.json()
+        all_resp = {}
 
         if 'results' in cur_resp:
             while 'paging' in cur_resp and len(resp.json()['results']) < limit:
@@ -281,13 +282,16 @@ class BbRest:
                 prepped = self.session.prepare_request(req)
                 cur_resp = self.session.send(prepped).json()
                 if 'results' in cur_resp:
-                    resp['results'].extend(cur_resp['results'])
-            if len(resp['results']) > limit:
-                resp['results'] = resp['results'][:limit]
-                vals = resp['paging']['nextPage'].split('=')
+                    all_resp['results'].extend(cur_resp['results'])
+            if len(all_resp['results']) > limit:
+                all_resp['results'] = all_resp['results'][:limit]
+                vals = all_resp['paging']['nextPage'].split('=')
                 vals[-1] = str(limit)
-                resp['paging']['nextPage'] = '='.join(vals)
+                all_resp['paging']['nextPage'] = '='.join(vals)
         
+        ret_resp = Response()
+        ret_resp.status_code = 200
+        ret_resp._content = json.dumps(all_resp).encode('utf-8')
         return resp
         
     
