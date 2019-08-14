@@ -1,9 +1,13 @@
 import maya
 import requests
-import re
+from requests.models import Response
+import json
 import types
 import asyncio
 import aiohttp
+from aiohttp import web
+import urllib
+import re
 
 class BbRest:
     session = ''
@@ -11,7 +15,7 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url, headers=None):
+    def __init__(self, key, secret, url, headers=None, threelegoauth=False):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
@@ -46,7 +50,9 @@ class BbRest:
         #get the current version via a REST call
         r = self.session.get(f'{url}/learn/api/public/v1/system/version')
         if r.status_code == 200:
-            version = f"{r.json()['learn']['major']}.0.0" #Ignore incremental
+            major = r.json()['learn']['major']
+            minor = r.json()['learn']['minor']
+            version = f"{major}.{minor}.0" #Ignore incremental patches
         else:
             print(f"Could not retrieve version, error code: {r.status_code}")
             version = '3000.0.0' #Version wasn't supported until 3000.3.0
@@ -69,7 +75,7 @@ class BbRest:
                         'parameters':meta['parameters'],
                         'method':call,
                         'path':path,
-                        #'version':re.findall(p,meta['description'])
+                        'version':re.findall(p,meta['description'])
                     })
        
 
@@ -101,8 +107,8 @@ class BbRest:
         """
 
         #filter out unsupported rest calls, based on current version
-        #functions = [f for f in self.__all_functions if self.is_supported(f)]
-        functions = [f for f in self.__all_functions]
+        functions = [f for f in self.__all_functions if self.is_supported(f)]
+        #functions = [f for f in self.__all_functions]
         
         #generate a dictionary of supported methods
         d_functions = {}
@@ -124,6 +130,9 @@ class BbRest:
                 elif summary == 'GetMemberships' and 'courseId' in path:
                     summary = 'GetCourseMemberships'
 
+            if method == 'post':
+                parameters = clean_params(parameters)
+
             d_functions[summary] = {'method':method,
                                     'path':path,
                                     'description':description,
@@ -141,8 +150,25 @@ class BbRest:
             parameters = functions[function]['parameters']
             
             p = r'{\w+}'
-            def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]+['**kwargs']
-            params = [param[1:-1]+'= '+param[1:-1] for param in re.findall(p,path)]+['**kwargs']
+            def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]
+            params = [param[1:-1]+'= '+param[1:-1] for param in re.findall(p,path)]
+            
+            #put, post, patch methods have payload as an argument
+            #get has params as an argument 
+            if functions[function]['method'][0] == 'p':
+                def_params.append('payload= {}')
+                params.append('payload= payload')
+            
+            if functions[function]['method'] == 'get':
+                def_params.append('params= {}')
+                params.append('params= params')
+
+                if function[-1] == 's' or function.endswith("Children"):
+                    def_params.append('limit= 100')
+                    params.append('limit= limit')
+
+            def_params.append('sync= True')
+            params.append('sync= sync')
 
             def_param_string = ', '.join(def_params)
             param_string = ', '.join(params)
@@ -167,14 +193,50 @@ class BbRest:
         method = self.functions[summary]['method']
         path = self.__url + self.functions[summary]['path']
         url = path.format(**kwargs)
-        params = kwargs.get('params',  '')
-        payload = kwargs.get('payload', '')
+        params = kwargs.get('params',  {})
+        payload = kwargs.get('payload', {})
+        limit = kwargs.get('limit', 100)
 
-        async with aiohttp.ClientSession(headers=self.session.headers) as session:
-            async with session.request(method, url=url, json=payload, params=params) as resp:
-                return await resp.json()
+        if limit == 100:
+            async with aiohttp.ClientSession(headers=self.session.headers) as session:
+                async with session.request(method, url=url, json=payload, params=params) as resp:
+                    ret_resp = Response()
+                    ret_resp.status_code = resp.status
+                    ret_resp.error_type = resp.reason
+                    ret_resp._content = await resp.read()
+                    
+                    return ret_resp
 
-    
+        tasks = []
+        for i in range(0,limit,100):
+            new_params = params.copy()
+            new_params['limit'] = 100
+            new_params['offset'] = i
+            tasks.append(self.acall(summary, params=new_params))
+
+
+        resps = await asyncio.gather(*tasks)
+        resps_json = [resp.json() for resp in resps]
+        results = []
+        for resp in resps_json:
+            if 'results' in resp:
+                print(f"There are {len(resp['results'])} results in this response")
+                results.extend(resp['results'])
+                print(len(results))
+        
+        if len(results) > limit:
+            resp = {'results':results[:limit]}
+            params['offset'] = limit
+            resp['paging'] = {'nextPage': f'{url}?{urllib.parse.urlencode(params)}'}
+        else:
+            resp = {'results':results}
+
+        ret_resp = Response()
+        ret_resp.status_code = 200
+        ret_resp._content = json.dumps(resp).encode('utf-8')
+        return ret_resp
+
+
     def call(self, summary, **kwargs):
         r'''   Constructs and sends a :class:`Request <Request>`.
         :param summary: method for the new `Request` .
@@ -184,14 +246,16 @@ class BbRest:
         :return: :class:`Response <Response>` object
         :rtype: requests.Response
         '''
-        if kwargs.get('asynch','') == True:
+        if kwargs.get('sync','') != True:
             return self.acall(summary, **kwargs)
+
         
         method = self.functions[summary]['method']
         path = self.__url + self.functions[summary]['path']
         url = path.format(**kwargs)
-        params = kwargs.get('params',  '')
-        payload = kwargs.get('payload', '')
+        params = kwargs.get('params', {})
+        payload = kwargs.get('payload', {})
+        limit = kwargs.get('limit', 100)
 
         if self.is_expired():
             self.refresh_token()
@@ -203,89 +267,30 @@ class BbRest:
                               json = payload)
 
         prepped = self.session.prepare_request(req)
+        
+        #delete doesn't return json... for some reason
+        
+        resp = self.session.send(prepped)
+        cur_resp = resp.json()
 
-        return self.session.send(prepped)
-
-    def get_all(self, summary, **kwargs):
-        r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.
-        :param summary: method for the Get `Request` .
-        :param params: (optional) Dictionary, list of tuples or bytes to send
-            in the body of the :class:`Request`.
-        :param max_limit: (optional) total number of JSON objects to return.
-        :param limit: (optional) number of JSON objects to fetch each call.
-        :return: list of either max_limit, or total json objects.
-        :rtype: list of (json)
-        '''
-        if 'Get' not in summary:
-            print('This only works for Get Calls')
-            return []
-
-        results = []
-        offset = 0
-
-        max_limit = kwargs.get('max_limit',1000)
-        kwargs['params'] = kwargs.get('params', {})
-
-        limit = kwargs.get('limit',100)
-        kwargs['params']['limit'] = limit
-
-        while offset < max_limit:
-            kwargs['params']['offset'] = offset
-            r = self.call(summary, **kwargs)
-            r_json = r.json()
-            if 'results' in r_json:
-                results.extend(r.json()['results'])
-
-            if 'paging' not in r_json:
-                break
-
-            else:
-                offset += limit
-
-        return results
+        if 'results' in cur_resp:
+            while 'paging' in cur_resp and len(resp.json()['results']) < limit:
+                next_page = self.__url + cur_resp['paging']['nextPage']
+                req = requests.Request(method=method, 
+                               url=next_page)
+                prepped = self.session.prepare_request(req)
+                cur_resp = self.session.send(prepped).json()
+                if 'results' in cur_resp:
+                    resp['results'].extend(cur_resp['results'])
+            if len(resp['results']) > limit:
+                resp['results'] = resp['results'][:limit]
+                vals = resp['paging']['nextPage'].split('=')
+                vals[-1] = str(limit)
+                resp['paging']['nextPage'] = '='.join(vals)
+        
+        return resp
+        
     
-    async def get_all_async(self, summary, **kwargs):
-        r'''   Pages through responses and gathers all responses from :class:`Request <Request>`.
-        :param summary: method for the Get `Request` .
-        :param params: (optional) Dictionary, list of tuples or bytes to send
-            in the body of the :class:`Request`.
-        :param max_limit: (optional) total number of JSON objects to return.
-        :param limit: (optional) number of JSON objects to fetch each call.
-        :return: list of either max_limit, or total json objects.
-        :rtype: list of (json)
-        '''
-        if 'Get' not in summary:
-            print('This only works for Get Calls')
-            return {'status':'401', 'message':'This only works for GET calls'}
-
-        results = []
-        offset = 0
-
-        max_limit = kwargs.get('max_limit',1000)
-        kwargs['params'] = kwargs.get('params', {})
-
-        limit = kwargs.get('limit',100)
-        kwargs['params']['limit'] = limit
-        
-        tasks = []
-        #print(limit)
-        for i in range(0,max_limit,limit): 
-            tasks.append(self.acall('GetCourseMemberships',
-                                  courseId='TST-101', 
-                                  params={'limit':limit, 
-                                  'offset':i}))
-
-        resps = await asyncio.gather(*tasks)
-        
-        results = []
-        #print(len(resps))
-        for resp in resps:
-            if 'results' in resp:
-                #print(len(resp['results']))
-                results.extend(resp['results'])
-        
-        return results
-
     def is_expired(self):
         return maya.now() > self.expiration_epoch
 
@@ -326,27 +331,61 @@ class BbRest:
 def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwargs):
         if userId:
             if userId[0] != '_' and ':' not in userId:
-                kwargs['userId'] = 'userName:{username}'.format(username=userId)
+                kwargs['userId'] = f'userName:{userId}'
 
             else:
                 kwargs['userId'] = userId
 
         if courseId:
             if courseId[0] != '_' and ':' not in courseId:
-                kwargs['courseId'] = 'courseId:{courseId}'.format(courseId=courseId)
+                kwargs['courseId'] = f'courseId:{courseId}'
             else:
                 kwargs['courseId'] = courseId
 
         if columnId:
             if columnId[0] != '_' and columnId != 'finalGrade':
-                kwargs['columnId'] = 'externalId:{columnId}'.format(columnId=columnId)
+                kwargs['columnId'] = f'externalId:{columnId}'
             else:
                 kwargs['columnId'] = columnId
 
         if groupId:
             if groupId[0] != '_':
-                kwargs['groupId'] = 'externalId:{groupId}'.format(groupId=groupId)
+                kwargs['groupId'] = f'externalId:{groupId}'
             else:
                 kwargs['groupId'] = groupId
 
         return kwargs
+
+def clean_params(parameters):
+    ret_string = ''
+    params = [param['schema'] for param in parameters if 'schema' in param]
+    if not params:
+        return parameters
+
+    required = params[0].get('required', [])
+    props = params[0]['properties']
+    for key in props:
+        prop_key = f'{key} -optional '
+        if key in required:
+            prop_key=f'{key} **required**'
+        prop_type = props[key].get("type","")
+        prop_desc = props[key].get("description","")
+        prop_enum = props[key].get("enum", "")
+        prop_items = props[key].get("items")
+        
+        enum_str = ''
+        items_str = ''
+        
+        if prop_type:
+            type_str = f'\n\ttype: {prop_type}'
+        if prop_desc:
+            desc_str = f'\n\tdescription: {prop_desc}'
+        if prop_enum:
+            enum_str = f'\n\tenum: {prop_enum}'
+        if prop_items:
+            items_str = f'\n\titems: {prop_items}'
+        
+        
+        ret_string += f'-----------------\n{prop_key}{type_str}{desc_str}{enum_str}{items_str}\n-----------------'
+    
+    return ret_string    
