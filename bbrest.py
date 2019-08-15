@@ -63,7 +63,7 @@ class BbRest:
         #use the functions that exist in functions.p,
         #or retrieve from the swagger_json definitions
     
-        swagger_json = requests.get(f'https://developer.blackboard.com/portal/docs/apis/learn-swagger-{version}.json').json()
+        swagger_json = requests.get(f'https://developer.blackboard.com/portal/docs/apis/learn-swagger.json').json()
         p = r'\d+.\d+.\d+'
         functions = []
         for path in swagger_json['paths']:
@@ -220,9 +220,9 @@ class BbRest:
         results = []
         for resp in resps_json:
             if 'results' in resp:
-                print(f"There are {len(resp['results'])} results in this response")
+                #print(f"There are {len(resp['results'])} results in this response")
                 results.extend(resp['results'])
-                print(len(results))
+                #print(len(results))
         
         if len(results) > limit:
             resp = {'results':results[:limit]}
@@ -272,23 +272,33 @@ class BbRest:
         
         resp = self.session.send(prepped)
         cur_resp = resp.json()
+        all_resp = {'results':cur_resp['results']}
 
         if 'results' in cur_resp:
-            while 'paging' in cur_resp and len(resp.json()['results']) < limit:
+            while 'paging' in cur_resp and len(all_resp['results']) < limit:
                 next_page = self.__url + cur_resp['paging']['nextPage']
                 req = requests.Request(method=method, 
                                url=next_page)
                 prepped = self.session.prepare_request(req)
                 cur_resp = self.session.send(prepped).json()
                 if 'results' in cur_resp:
-                    resp['results'].extend(cur_resp['results'])
-            if len(resp['results']) > limit:
-                resp['results'] = resp['results'][:limit]
-                vals = resp['paging']['nextPage'].split('=')
+                    all_resp['results'].extend(cur_resp['results'])
+                if 'paging' in cur_resp:
+                    all_resp['paging'] = cur_resp['paging']
+                else:
+                    del all_resp['paging']
+           
+            if len(all_resp['results']) > limit and 'paging' in cur_resp:
+                all_resp['results'] = all_resp['results'][:limit]
+                print(len(all_resp['results']))
+                vals = cur_resp['paging']['nextPage'].split('=')
                 vals[-1] = str(limit)
-                resp['paging']['nextPage'] = '='.join(vals)
+                all_resp['paging']['nextPage'] = '='.join(vals)
         
-        return resp
+        ret_resp = Response()
+        ret_resp.status_code = 200
+        ret_resp._content = json.dumps(all_resp).encode('utf-8')
+        return ret_resp
         
     
     def is_expired(self):
@@ -363,7 +373,7 @@ def clean_params(parameters):
         return parameters
 
     required = params[0].get('required', [])
-    props = params[0]['properties']
+    props = params[0].get('properties',[])
     for key in props:
         prop_key = f'{key} -optional '
         if key in required:
