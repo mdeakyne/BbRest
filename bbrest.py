@@ -210,10 +210,13 @@ class BbRest:
         tasks = []
         for i in range(0,limit,100):
             new_params = params.copy()
+            new_kwargs = kwargs.copy()
+
             new_params['limit'] = 100
             new_params['offset'] = i
-            tasks.append(self.acall(summary, params=new_params))
-
+            del new_kwargs['params']
+            new_kwargs['limit'] = 100
+            tasks.append(self.acall(summary, params=new_params, **new_kwargs))
 
         resps = await asyncio.gather(*tasks)
         resps_json = [resp.json() for resp in resps]
@@ -224,12 +227,16 @@ class BbRest:
                 results.extend(resp['results'])
                 #print(len(results))
         
+        
+        if 'paging' in resps_json[-1]:
+            resp['paging'] = resps_json[-1]['paging']
+
         if len(results) > limit:
             resp = {'results':results[:limit]}
             params['offset'] = limit
             resp['paging'] = {'nextPage': f'{url}?{urllib.parse.urlencode(params)}'}
         else:
-            resp = {'results':results}
+            resp['results'] = results
 
         ret_resp = Response()
         ret_resp.status_code = 200
