@@ -63,7 +63,7 @@ class BbRest:
         #use the functions that exist in functions.p,
         #or retrieve from the swagger_json definitions
     
-        swagger_json = requests.get(f'https://developer.blackboard.com/portal/docs/apis/learn-swagger-{version}.json').json()
+        swagger_json = requests.get(f'https://developer.blackboard.com/portal/docs/apis/learn-swagger.json').json()
         p = r'\d+.\d+.\d+'
         functions = []
         for path in swagger_json['paths']:
@@ -272,10 +272,10 @@ class BbRest:
         
         resp = self.session.send(prepped)
         cur_resp = resp.json()
-        all_resp = {}
+        all_resp = {'results':cur_resp['results']}
 
         if 'results' in cur_resp:
-            while 'paging' in cur_resp and len(resp.json()['results']) < limit:
+            while 'paging' in cur_resp and len(all_resp['results']) < limit:
                 next_page = self.__url + cur_resp['paging']['nextPage']
                 req = requests.Request(method=method, 
                                url=next_page)
@@ -283,16 +283,22 @@ class BbRest:
                 cur_resp = self.session.send(prepped).json()
                 if 'results' in cur_resp:
                     all_resp['results'].extend(cur_resp['results'])
-            if len(all_resp['results']) > limit:
+                if 'paging' in cur_resp:
+                    all_resp['paging'] = cur_resp['paging']
+                else:
+                    del all_resp['paging']
+           
+            if len(all_resp['results']) > limit and 'paging' in cur_resp:
                 all_resp['results'] = all_resp['results'][:limit]
-                vals = all_resp['paging']['nextPage'].split('=')
+                print(len(all_resp['results']))
+                vals = cur_resp['paging']['nextPage'].split('=')
                 vals[-1] = str(limit)
                 all_resp['paging']['nextPage'] = '='.join(vals)
         
         ret_resp = Response()
         ret_resp.status_code = 200
         ret_resp._content = json.dumps(all_resp).encode('utf-8')
-        return resp
+        return ret_resp
         
     
     def is_expired(self):
@@ -367,7 +373,7 @@ def clean_params(parameters):
         return parameters
 
     required = params[0].get('required', [])
-    props = params[0]['properties']
+    props = params[0].get('properties',[])
     for key in props:
         prop_key = f'{key} -optional '
         if key in required:
