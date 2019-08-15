@@ -241,6 +241,7 @@ class BbRest:
         ret_resp = Response()
         ret_resp.status_code = 200
         ret_resp._content = json.dumps(resp).encode('utf-8')
+        ret_resp.url = url
         return ret_resp
 
 
@@ -316,7 +317,7 @@ class BbRest:
         
         ret_resp = Response()
         ret_resp.status_code = 200
-        ret_resp.url = resp.url
+        ret_resp.url = url
         ret_resp._content = json.dumps(all_resp).encode('utf-8')
         
         return ret_resp
