@@ -272,7 +272,7 @@ class BbRest:
         
         resp = self.session.send(prepped)
         cur_resp = resp.json()
-        
+        ret_resp = resp
 
         if 'results' in cur_resp:
             all_resp = {'results':cur_resp['results']}
@@ -296,9 +296,9 @@ class BbRest:
                 vals[-1] = str(limit)
                 all_resp['paging']['nextPage'] = '='.join(vals)
         
-        ret_resp = Response()
-        ret_resp.status_code = 200
-        ret_resp._content = json.dumps(all_resp).encode('utf-8')
+            ret_resp = Response()
+            ret_resp.status_code = 200
+            ret_resp._content = json.dumps(all_resp).encode('utf-8')
         return ret_resp
         
     
