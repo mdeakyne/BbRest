@@ -293,7 +293,7 @@ class BbRest:
                     all_resp['results'].extend(cur_resp['results'])
                 if 'paging' in cur_resp:
                     all_resp['paging'] = cur_resp['paging']
-                else:
+                elif 'paging' in all_resp:
                     del all_resp['paging']
            
             if len(all_resp['results']) > limit and 'paging' in cur_resp:
