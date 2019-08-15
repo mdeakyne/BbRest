@@ -272,9 +272,10 @@ class BbRest:
         
         resp = self.session.send(prepped)
         cur_resp = resp.json()
-        all_resp = {'results':cur_resp['results']}
+        
 
         if 'results' in cur_resp:
+            all_resp = {'results':cur_resp['results']}
             while 'paging' in cur_resp and len(all_resp['results']) < limit:
                 next_page = self.__url + cur_resp['paging']['nextPage']
                 req = requests.Request(method=method, 
