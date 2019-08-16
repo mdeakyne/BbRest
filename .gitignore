@@ -11,3 +11,4 @@ bbrest/__pycache__
 *transcrypt*
 *.vscode*
 __pycache__
+*.csv

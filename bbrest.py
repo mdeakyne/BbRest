@@ -241,6 +241,7 @@ class BbRest:
         ret_resp = Response()
         ret_resp.status_code = 200
         ret_resp._content = json.dumps(resp).encode('utf-8')
+        ret_resp.url = url
         return ret_resp
 
 
@@ -275,7 +276,6 @@ class BbRest:
 
         prepped = self.session.prepare_request(req)
         
-        #delete doesn't return json... for some reason
         
         resp = self.session.send(prepped)
         cur_resp = resp.json()
@@ -293,19 +293,34 @@ class BbRest:
                     all_resp['results'].extend(cur_resp['results'])
                 if 'paging' in cur_resp:
                     all_resp['paging'] = cur_resp['paging']
-                else:
+                elif 'paging' in all_resp:
                     del all_resp['paging']
            
-            if len(all_resp['results']) > limit and 'paging' in cur_resp:
+            
+            if len(all_resp['results']) > limit:
                 all_resp['results'] = all_resp['results'][:limit]
-                print(len(all_resp['results']))
-                vals = cur_resp['paging']['nextPage'].split('=')
-                vals[-1] = str(limit)
-                all_resp['paging']['nextPage'] = '='.join(vals)
+                if 'paging' in cur_resp:
+                    vals = cur_resp['paging']['nextPage'].split('=')
+                    vals[-1] = str(limit)
+                    all_resp['paging'] = {'nextPage':'='.join(vals)}
+
+                else:
+                    new_params = params.copy()
+                    new_params['offset'] = limit
+                    all_resp['paging'] = {}
+                    all_resp['paging']['nextPage'] = (self.__url + 
+                                                      self.functions[summary]['path'] +
+                                                      '?' +
+                                                      urllib.parse.urlencode(new_params))
+        else:
+            return resp
+
         
-            ret_resp = Response()
-            ret_resp.status_code = 200
-            ret_resp._content = json.dumps(all_resp).encode('utf-8')
+        ret_resp = Response()
+        ret_resp.status_code = 200
+        ret_resp.url = url
+        ret_resp._content = json.dumps(all_resp).encode('utf-8')
+        
         return ret_resp
         
     
