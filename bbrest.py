@@ -283,7 +283,6 @@ class BbRest:
 
         if 'results' in cur_resp:
             all_resp = {'results':cur_resp['results']}
-            print(limit, all_resp['results'])
             while 'paging' in cur_resp and len(all_resp['results']) < limit:
                 next_page = self.__url + cur_resp['paging']['nextPage']
                 req = requests.Request(method=method, 
@@ -304,7 +303,7 @@ class BbRest:
                     vals = cur_resp['paging']['nextPage'].split('=')
                     vals[-1] = str(limit)
                     all_resp['paging'] = {'nextPage':'='.join(vals)}
-                    
+
                 else:
                     new_params = params.copy()
                     new_params['offset'] = limit
