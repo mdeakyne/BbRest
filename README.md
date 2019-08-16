@@ -113,7 +113,7 @@ One of the big advantages of javascript over python was the idea of promises and
 I've tried to make using it with BbRest to be as easy as possible.
 
 ```python
-user_info = await bb.GetUser('test_user', asynch=True)
+user_info = await bb.GetUser('test_user', sync=False)
 ```
 
 NOTE: Based on how this is setup - you get back a dict object on success or failure.  The failure has a status, but the success only has the info.  This is slightly different than how it works synchronously, and has the potential to cause logic errors in the code.
@@ -123,13 +123,13 @@ Here's an example of multiple calls:
 #Assume users is a list of userNames
 tasks = []
 for user in users:
-  tasks.append(bb.GetUser(user), asynch=True)
+  tasks.append(bb.GetUser(user), sync=False)
 resps = await asynchio.gather(*tasks)
 ```
 
 Since these calls are asynchronous, it's MUCH faster than synchronously going through all users. 
 
 ### Working on
-Matching up the responses of Async and Sync functions
-Better exception handling, and a way to view failure history.
-Calls will always be authenticated, if the session is expired, it will renew the session.
+[x] Matching up the responses of Async and Sync functions (This is in place as of 3.7)
+[ ] Better exception handling, and a way to view failure history.
+[x] Calls will always be authenticated, if the session is expired, it will renew the session.
