@@ -278,8 +278,13 @@ class BbRest:
         
         
         resp = self.session.send(prepped)
-        cur_resp = resp.json()
         ret_resp = resp
+
+        try:
+            cur_resp = resp.json()
+        except 'JSONDecodeError':
+            return resp
+        
 
         if 'results' in cur_resp:
             all_resp = {'results':cur_resp['results']}
