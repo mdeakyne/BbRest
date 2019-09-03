@@ -12,3 +12,4 @@ bbrest/__pycache__
 *.vscode*
 __pycache__
 *.csv
+*log

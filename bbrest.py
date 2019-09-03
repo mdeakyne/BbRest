@@ -138,7 +138,9 @@ class BbRest:
                                     'description':description,
                                     'parameters':parameters}
         self.functions = d_functions
-        
+    
+
+
     def method_generator(self):
         #Go through each supported method, and figure out parameters,
         #Then create a function on the fly, and save this function as a class method.
@@ -282,7 +284,7 @@ class BbRest:
 
         try:
             cur_resp = resp.json()
-        except 'JSONDecodeError':
+        except json.decoder.JSONDecodeError:
             return resp
         
 
