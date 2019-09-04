@@ -7,6 +7,7 @@ import asyncio
 import aiohttp
 from aiohttp import web
 import urllib
+import urllib.parse as urlparse
 import re
 
 class BbRest:
@@ -15,7 +16,7 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url, headers=None, threelegoauth=False):
+    def __init__(self, key, secret, url, headers=None, user='', pwd='', scope='read'):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
@@ -83,6 +84,44 @@ class BbRest:
         self.__all_functions = functions
         self.supported_functions()
         self.method_generator()
+
+        if user:
+            from splinter import Browser
+            r = self.AuthorizationCode(params={'redirect_uri':'https://localhost/',
+                                        'response_type':'code', 
+                                        'client_id':self.__key, 
+                                        'scope':scope,
+                                        'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'})
+            try:
+                b = Browser(driver_name='chrome')
+                b.visit(r.url)
+                b.click_link_by_id('specialUserLink')
+                b.fill('user_id',user)
+                b.fill('password',pwd)
+                b.click_link_by_id('entry-login')
+                url = b.url
+                b.quit()
+            except:
+                url = b.url
+                b.quit()
+            
+            params = urlparse.parse_qs(urlparse.urlparse(url).query)
+            code = params['code'][0]
+
+            r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
+                     params = {'code':code, 'redirect_uri':'https://localhost/'},
+                     data={'grant_type':'authorization_code'},
+                     auth=(self.__key, self.__secret))
+
+            #Adds the token to the headers for future requests.
+            if r.status_code == 200:
+                token = r.json()["access_token"]
+                session.headers.update({"Authorization":f"Bearer {token}"})
+                self.expiration_epoch = maya.now() + r.json()["expires_in"]
+
+            else:
+                print('Authorization failed, check your key, secret, url and login info')
+                return
 
     def is_supported(self, function):
         if not function['version']:
@@ -278,8 +317,12 @@ class BbRest:
         
         
         resp = self.session.send(prepped)
-        cur_resp = resp.json()
         ret_resp = resp
+        
+        try:
+            cur_resp = resp.json()
+        except json.JSONDecodeError:
+            return resp
 
         if 'results' in cur_resp:
             all_resp = {'results':cur_resp['results']}
@@ -359,7 +402,7 @@ class BbRest:
         #weird fomatting issue with f-strings, didn't want to display tabs.
         call_str = f"""You've used {used_calls} REST calls so far.\nYou have {calls_perc:.2f}% left until {reset_time.slang_time()}\nAfter that, they should reset"""
         print(call_str)
-
+        
 
 def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwargs):
         if userId:
