@@ -106,10 +106,15 @@ class BbRest:
 
             res = s.get(r.url)
             nonceHTML = res.content.decode()
-            pattern = 'nonce.*value.*.([a-f0-9\-]{36})'
+            pattern = '*nonce.*[vV]alue.*.([a-f0-9\-]{{36}})'
 
             nonceList = re.findall(pattern, nonceHTML)
-            nonceValue = nonceList[0]
+            nonceValue = ''
+            try:
+                nonceValue = nonceList[0]
+            except:
+                print('Not able to find a nonce')
+                return
 
             login_data = {'action':'login', 'login':'Login', 
                   'user_id':'deak_test',
