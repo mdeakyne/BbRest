@@ -9,6 +9,7 @@ from aiohttp import web
 import urllib
 import urllib.parse as urlparse
 import re
+from selenium import webdriver
 
 class BbRest:
     session = ''
@@ -92,19 +93,36 @@ class BbRest:
                                         'client_id':self.__key, 
                                         'scope':scope,
                                         'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'})
-            try:
-                b = Browser(driver_name='chrome')
-                b.visit(r.url)
-                b.click_link_by_id('specialUserLink')
-                b.fill('user_id',user)
-                b.fill('password',pwd)
-                b.click_link_by_id('entry-login')
-                url = b.url
-                b.quit()
-            except:
-                url = b.url
-                b.quit()
+            driver = webdriver.Chrome()
+            driver.get(r.url)
             
+            request_cookies_browser = driver.get_cookies()
+
+            s = requests.Session()
+            c = [s.cookies.set(c['name'], c['value']) for c in request_cookies_browser]
+
+            res = s.get(r.url)
+            nonceHTML = res.content.decode()
+            pattern = 'nonce.*value.*.([a-f0-9\-]{36})'
+
+            nonceList = re.findall(pattern, nonceHTML)
+            nonceValue = nonceList[0]
+
+            login_data = {'action':'login', 'login':'Login', 
+                  'user_id':'deak_test',
+                  'password':'Hillarious', 
+                  'blackboard.platform.security.NonceUtil.nonce':nonceValue,
+                  'new_loc':'/webapps/api-gateway/oauth2/authorizationcode?response_type=code&client_id=d279753a-8319-4910-8b27-0ed5de84bcaf&redirect_uri=https%3A%2F%2Flocalhost%2F&scope=read&state=DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'}
+            resp = s.post(r.url, data=login_data)
+            
+            dict_resp_cookies = resp.cookies.get_dict()
+            response_cookies_browser = [{'name':name, 'value':value} for name, value in dict_resp_cookies.items()]
+            c = [driver.add_cookie(c) for c in response_cookies_browser]
+
+            driver.get(r.url)
+            url = driver.current_url
+            driver.quit()
+
             params = urlparse.parse_qs(urlparse.urlparse(url).query)
             code = params['code'][0]
 

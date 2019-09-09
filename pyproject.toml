@@ -10,6 +10,8 @@ python = "^3.6"
 maya = "*"
 requests = "*"
 aiohttp = "*"
+requests-html = "^0.10.0"
+selenium = "*"
 
 [tool.poetry.dev-dependencies]
 jupyterlab = "*"
