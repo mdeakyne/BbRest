@@ -96,7 +96,7 @@ class BbRest:
             options = webdriver.ChromeOptions()
             options.add_argument('headless')
             driver = webdriver.Chrome(chrome_options=options)
-            
+
             driver.get(r.url)
             
             request_cookies_browser = driver.get_cookies()
@@ -125,7 +125,7 @@ class BbRest:
             driver.get(resp.url)
             
             url = driver.current_url
-            if 'code' in url:
+            if 'code=' in url:
                 #print(url)
                 driver.quit()
                 params = urlparse.parse_qs(urlparse.urlparse(url).query)
