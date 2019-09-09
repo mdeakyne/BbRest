@@ -93,7 +93,10 @@ class BbRest:
                                         'client_id':self.__key, 
                                         'scope':scope,
                                         'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'})
-            driver = webdriver.Chrome()
+            options = webdriver.ChromeOptions()
+            options.add_argument('headless')
+            driver = webdriver.Chrome(chrome_options=options)
+            
             driver.get(r.url)
             
             request_cookies_browser = driver.get_cookies()
@@ -119,12 +122,18 @@ class BbRest:
             response_cookies_browser = [{'name':name, 'value':value} for name, value in dict_resp_cookies.items()]
             c = [driver.add_cookie(c) for c in response_cookies_browser]
 
-            driver.get(r.url)
+            driver.get(resp.url)
+            
             url = driver.current_url
-            driver.quit()
+            if 'code' in url:
+                #print(url)
+                driver.quit()
+                params = urlparse.parse_qs(urlparse.urlparse(url).query)
+                code = params['code'][0]
 
-            params = urlparse.parse_qs(urlparse.urlparse(url).query)
-            code = params['code'][0]
+            else:
+                print('expected code in url')
+                return
 
             r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
                      params = {'code':code, 'redirect_uri':'https://localhost/'},
