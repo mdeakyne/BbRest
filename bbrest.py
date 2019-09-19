@@ -11,6 +11,9 @@ import urllib.parse as urlparse
 import re
 from selenium import webdriver
 
+with open('ent_map.json','r') as fp:
+    ent_map = json.load(fp)
+
 class BbRest:
     session = ''
     expiration_epoch = ''
@@ -67,17 +70,25 @@ class BbRest:
     
         swagger_json = requests.get(f'https://developer.blackboard.com/portal/docs/apis/learn-swagger.json').json()
         p = r'\d+.\d+.\d+'
+        q = r'[A-Za-z]+\.[A-Za-z]+\.[A-Za-z]+\.?[A-Za-z]*\.?[A-Za-z]*'
         functions = []
         for path in swagger_json['paths']:
             for call in swagger_json['paths'][path].keys():
                 meta = swagger_json['paths'][path][call]
+                perms = re.findall(q, meta['description'])
+                
+                description = meta['description']
+                for perm in perms:
+                    if perm.lower() in ent_map:
+                        description = description.replace(perm, ent_map[perm.lower()])
                 functions.append(
                     {'summary':meta['summary'].replace(' ',''),
-                        'description':meta['description'],
+                        'description':description,
                         'parameters':meta['parameters'],
                         'method':call,
                         'path':path,
-                        'version':re.findall(p,meta['description'])
+                        'version':re.findall(p,meta['description']),
+                        'permissions': perms
                     })
        
 
@@ -106,21 +117,17 @@ class BbRest:
 
             res = s.get(r.url)
             nonceHTML = res.content.decode()
-            pattern = '*nonce.*[vV]alue.*.([a-f0-9\-]{{36}})'
+            pattern = 'nonce.*value.*.([a-f0-9\-]{36})'
 
             nonceList = re.findall(pattern, nonceHTML)
-            nonceValue = ''
-            try:
-                nonceValue = nonceList[0]
-            except:
-                print('Not able to find a nonce')
-                return
+            nonceValue = nonceList[0]
 
             login_data = {'action':'login', 'login':'Login', 
-                  'user_id':'deak_test',
-                  'password':'Hillarious', 
+                  'user_id':user,
+                  'password':pwd, 
                   'blackboard.platform.security.NonceUtil.nonce':nonceValue,
                   'new_loc':'/webapps/api-gateway/oauth2/authorizationcode?response_type=code&client_id=d279753a-8319-4910-8b27-0ed5de84bcaf&redirect_uri=https%3A%2F%2Flocalhost%2F&scope=read&state=DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'}
+            
             resp = s.post(r.url, data=login_data)
             
             dict_resp_cookies = resp.cookies.get_dict()
@@ -132,12 +139,13 @@ class BbRest:
             url = driver.current_url
             if 'code=' in url:
                 #print(url)
-                driver.quit()
                 params = urlparse.parse_qs(urlparse.urlparse(url).query)
                 code = params['code'][0]
+                driver.quit()
 
             else:
                 print('expected code in url')
+                print(url)
                 return
 
             r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
@@ -150,7 +158,8 @@ class BbRest:
                 token = r.json()["access_token"]
                 session.headers.update({"Authorization":f"Bearer {token}"})
                 self.expiration_epoch = maya.now() + r.json()["expires_in"]
-
+                self.user = r.json()['user_id']
+                print(r.json())
             else:
                 print('Authorization failed, check your key, secret, url and login info')
                 return
@@ -189,6 +198,7 @@ class BbRest:
             parameters = function['parameters']
             method = function['method']
             path = function['path']
+            permissions = function['permissions']
             
             #Work around for 4 methods with similar names.
             if summary in ['GetChildren','GetMemberships']:
@@ -207,7 +217,8 @@ class BbRest:
             d_functions[summary] = {'method':method,
                                     'path':path,
                                     'description':description,
-                                    'parameters':parameters}
+                                    'parameters':parameters,
+                                    'permissions':permissions}
         self.functions = d_functions
         
     def method_generator(self):
@@ -219,6 +230,7 @@ class BbRest:
             path = functions[function]['path']
             description = functions[function]['description']
             parameters = functions[function]['parameters']
+            permissions = functions[function]['permissions']
             
             p = r'{\w+}'
             def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]
@@ -245,7 +257,7 @@ class BbRest:
             param_string = ', '.join(params)
 
             exec(f"""def {function}({def_param_string}): return self.call('{function}', **clean_kwargs({param_string}))""")
-            exec(f"""{function}.__doc__ = '''{description}\nParameters:\n{parameters}\n '''""")
+            exec(f"""{function}.__doc__ = '''{description}\nParameters:\n{parameters}\nPermissions:\{permissions} '''""")
             exec(f"""self.{function} = types.MethodType({function},self)""")  
             
             
@@ -275,7 +287,6 @@ class BbRest:
                     ret_resp.status_code = resp.status
                     ret_resp.error_type = resp.reason
                     ret_resp._content = await resp.read()
-                    
                     return ret_resp
 
         tasks = []
