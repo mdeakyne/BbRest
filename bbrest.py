@@ -82,7 +82,8 @@ class BbRest:
                     if perm.lower() in ent_map:
                         description = description.replace(perm, ent_map[perm.lower()])
                     else:
-                        print(perm)
+                        #print(perm)
+                        continue
                         
                 functions.append(
                     {'summary':meta['summary'].replace(' ',''),
@@ -91,7 +92,7 @@ class BbRest:
                         'method':call,
                         'path':path,
                         'version':re.findall(p,meta['description']),
-                        'permissions': perms
+                        'permissions': [ent_map.get(perm.lower(), perm) for perm in perms]
                     })
        
 
