@@ -134,7 +134,7 @@ class BbRest:
                     summary = 'GetCourseMemberships'
                 elif summary == 'Download' and 'attemptId' in path:
                     summary = 'DownloadAssignment'
-                elif summary == 'Download' and 'contentId' in path:
+                elif summary == 'Download' and 'attachmentId' in path:
                     summary = 'DownloadContent'
 
             if method == 'post':
