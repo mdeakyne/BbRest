@@ -88,6 +88,9 @@ class BbRest:
         if not function['version']:
             return False
         
+        if function['summary'].endswith('Attachment') or function['summary'].endswith('Attachments'):
+            return True
+
         start = function['version'][0]
         
         if len(function['version']) == 1:
@@ -120,7 +123,7 @@ class BbRest:
             path = function['path']
             
             #Work around for 4 methods with similar names.
-            if summary in ['GetChildren','GetMemberships']:
+            if summary in ['GetChildren','GetMemberships', 'Download']:
                 if summary == 'GetChildren' and 'contentId' in path:
                     summary = 'GetContentChildren'
                 elif summary == 'GetChildren' and 'courseId' in path:
@@ -129,6 +132,10 @@ class BbRest:
                     summary = 'GetUserMemberships'
                 elif summary == 'GetMemberships' and 'courseId' in path:
                     summary = 'GetCourseMemberships'
+                elif summary == 'Download' and 'assignmentId' in path:
+                    summary = 'DownloadAssignment'
+                elif summary == 'Download' and 'contentId' in path:
+                    summary = 'DownloadContent'
 
             if method == 'post':
                 parameters = clean_params(parameters)
