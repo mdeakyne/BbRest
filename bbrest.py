@@ -122,7 +122,7 @@ class BbRest:
             method = function['method']
             path = function['path']
             
-            #Work around for 4 methods with similar names.
+            #Work around for 6 methods with similar names.
             if summary in ['GetChildren','GetMemberships', 'Download']:
                 if summary == 'GetChildren' and 'contentId' in path:
                     summary = 'GetContentChildren'
@@ -132,7 +132,7 @@ class BbRest:
                     summary = 'GetUserMemberships'
                 elif summary == 'GetMemberships' and 'courseId' in path:
                     summary = 'GetCourseMemberships'
-                elif summary == 'Download' and 'assignmentId' in path:
+                elif summary == 'Download' and 'attemptId' in path:
                     summary = 'DownloadAssignment'
                 elif summary == 'Download' and 'contentId' in path:
                     summary = 'DownloadContent'
