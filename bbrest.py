@@ -88,7 +88,8 @@ class BbRest:
         if not function['version']:
             return False
         
-        if function['summary'].endswith('Attachment') or function['summary'].endswith('Attachments'):
+        summary = function['summary']
+        if summary.endswith('Attachment') or summary.endswith('Attachments') or summary == 'Download':
             return True
 
         start = function['version'][0]
