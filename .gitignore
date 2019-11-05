@@ -13,3 +13,4 @@ bbrest/__pycache__
 __pycache__
 *.csv
 *log
+*txt
