@@ -80,7 +80,7 @@ r = bb.GetUs<Tab>
 
 Find the parameters of 'GetColumnGrade'
 ```python
-r = bb.GetColumnGrade(<Tab>)
+r = bb.GetColumnGrade(<Shift-Tab>)
 ```
   * columnId=
   * courseId=
