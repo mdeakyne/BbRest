@@ -172,6 +172,10 @@ class BbRest:
         if not function['version']:
             return False
         
+        summary = function['summary']
+        if summary.endswith('Attachment') or summary.endswith('Attachments') or summary == 'Download':
+            return True
+
         start = function['version'][0]
         
         if len(function['version']) == 1:
@@ -206,8 +210,8 @@ class BbRest:
             path = function['path']
             permissions = function['permissions']
             
-            #Work around for 4 methods with similar names.
-            if summary in ['GetChildren','GetMemberships']:
+            #Work around for 6 methods with similar names.
+            if summary in ['GetChildren','GetMemberships', 'Download']:
                 if summary == 'GetChildren' and 'contentId' in path:
                     summary = 'GetContentChildren'
                 elif summary == 'GetChildren' and 'courseId' in path:
@@ -216,6 +220,10 @@ class BbRest:
                     summary = 'GetUserMemberships'
                 elif summary == 'GetMemberships' and 'courseId' in path:
                     summary = 'GetCourseMemberships'
+                elif summary == 'Download' and 'attemptId' in path:
+                    summary = 'DownloadAssignment'
+                elif summary == 'Download' and 'attachmentId' in path:
+                    summary = 'DownloadContent'
 
             if method == 'post':
                 parameters = clean_params(parameters)
@@ -226,7 +234,9 @@ class BbRest:
                                     'parameters':parameters,
                                     'permissions':permissions}
         self.functions = d_functions
-        
+    
+
+
     def method_generator(self):
         #Go through each supported method, and figure out parameters,
         #Then create a function on the fly, and save this function as a class method.
@@ -372,6 +382,12 @@ class BbRest:
             cur_resp = resp.json()
         except json.JSONDecodeError:
             return resp
+
+        try:
+            cur_resp = resp.json()
+        except json.decoder.JSONDecodeError:
+            return resp
+        
 
         if 'results' in cur_resp:
             all_resp = {'results':cur_resp['results']}
