@@ -139,7 +139,7 @@ class BbRest:
             c = [driver.add_cookie(c) for c in response_cookies_browser]
 
             driver.get(resp.url)
-            
+            print(resp.url)
             url = driver.current_url
             if 'code=' in url:
                 #print(url)
@@ -178,6 +178,8 @@ class BbRest:
             return start <= self.version
         else:
             end = function['version'][1]
+            if function['summary'] == 'CreateAssignment':
+                end = '3800'
 
         return start <= self.version < end
 
