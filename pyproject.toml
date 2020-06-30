@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bbrest"
-version = "0.3.9"
+version = "0.3.8-alpha4"
 description = "Blackboard REST API for Humans"
 authors = ["Matt Deakyne <m.d@ku.edu>"]
 readme = 'README.md'
@@ -10,13 +10,15 @@ python = "^3.6"
 maya = "*"
 requests = "*"
 aiohttp = "*"
+requests-html = "^0.10.0"
+selenium = "*"
 
 [tool.poetry.dev-dependencies]
 jupyterlab = "*"
 ipython = "^7.2"
 requests-oauthlib = "^1.2"
 splinter = "*"
-
+ipyauth = "^0.2.6"
 
 
 [build-system]

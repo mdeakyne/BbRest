@@ -7,7 +7,11 @@ import asyncio
 import aiohttp
 from aiohttp import web
 import urllib
+import urllib.parse as urlparse
 import re
+
+with open('ent_map.json','r') as fp:
+    ent_map = json.load(fp)
 
 class BbRest:
     session = ''
@@ -15,7 +19,7 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url, headers=None, threelegoauth=False):
+    def __init__(self, key, secret, url, headers=None, code='', scope='read'):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
@@ -65,17 +69,29 @@ class BbRest:
     
         swagger_json = requests.get(f'https://developer.blackboard.com/portal/docs/apis/learn-swagger.json').json()
         p = r'\d+.\d+.\d+'
+        q = r'[A-Za-z]+\.[A-Za-z]+\.[A-Za-z]+\.?[A-Za-z]*\.?[A-Za-z]*'
         functions = []
         for path in swagger_json['paths']:
             for call in swagger_json['paths'][path].keys():
                 meta = swagger_json['paths'][path][call]
+                perms = re.findall(q, meta['description'])
+                
+                description = meta['description']
+                for perm in perms:
+                    if perm.lower() in ent_map:
+                        description = description.replace(perm, ent_map[perm.lower()])
+                    else:
+                        #print(perm)
+                        continue
+                        
                 functions.append(
                     {'summary':meta['summary'].replace(' ',''),
-                        'description':meta['description'],
+                        'description':description,
                         'parameters':meta['parameters'],
                         'method':call,
                         'path':path,
-                        'version':re.findall(p,meta['description'])
+                        'version':re.findall(p,meta['description']),
+                        'permissions': [ent_map.get(perm.lower(), perm) for perm in perms]
                     })
        
 
@@ -83,6 +99,29 @@ class BbRest:
         self.__all_functions = functions
         self.supported_functions()
         self.method_generator()
+
+        if code:
+            r = self.AuthorizationCode(params={'redirect_uri':'https://localhost/',
+                                        'response_type':'code', 
+                                        'client_id':self.__key, 
+                                        'scope':scope,
+                                        'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'})
+                            
+            r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
+                     params = {'code':code, 'redirect_uri':'https://localhost/'},
+                     data={'grant_type':'authorization_code'},
+                     auth=(self.__key, self.__secret))
+
+            #Adds the token to the headers for future requests.
+            if r.status_code == 200:
+                token = r.json()["access_token"]
+                session.headers.update({"Authorization":f"Bearer {token}"})
+                self.expiration_epoch = maya.now() + r.json()["expires_in"]
+                self.user = r.json()['user_id']
+            
+            else:
+                print('Authorization failed, check your key, secret, url and login info')
+                return
 
     def is_supported(self, function):
         if not function['version']:
@@ -98,6 +137,8 @@ class BbRest:
             return start <= self.version
         else:
             end = function['version'][1]
+            if function['summary'] == 'CreateAssignment':
+                end = '3800'
 
         return start <= self.version < end
 
@@ -122,6 +163,7 @@ class BbRest:
             parameters = function['parameters']
             method = function['method']
             path = function['path']
+            permissions = function['permissions']
             
             #Work around for 6 methods with similar names.
             if summary in ['GetChildren','GetMemberships', 'Download']:
@@ -144,7 +186,8 @@ class BbRest:
             d_functions[summary] = {'method':method,
                                     'path':path,
                                     'description':description,
-                                    'parameters':parameters}
+                                    'parameters':parameters,
+                                    'permissions':permissions}
         self.functions = d_functions
     
 
@@ -158,6 +201,7 @@ class BbRest:
             path = functions[function]['path']
             description = functions[function]['description']
             parameters = functions[function]['parameters']
+            permissions = functions[function]['permissions']
             
             p = r'{\w+}'
             def_params = ['self']+[param[1:-1]+'= None' for param in re.findall(p,path)]
@@ -168,6 +212,9 @@ class BbRest:
             if functions[function]['method'][0] == 'p':
                 def_params.append('payload= {}')
                 params.append('payload= payload')
+                def_params.append('params= {}')
+                params.append('params= params')
+
             
             if functions[function]['method'] == 'get':
                 def_params.append('params= {}')
@@ -184,7 +231,7 @@ class BbRest:
             param_string = ', '.join(params)
 
             exec(f"""def {function}({def_param_string}): return self.call('{function}', **clean_kwargs({param_string}))""")
-            exec(f"""{function}.__doc__ = '''{description}\nParameters:\n{parameters}\n '''""")
+            exec(f"""{function}.__doc__ = '''{description}\nParameters:\n{parameters}\nPermissions:\{permissions} '''""")
             exec(f"""self.{function} = types.MethodType({function},self)""")  
             
             
@@ -214,7 +261,6 @@ class BbRest:
                     ret_resp.status_code = resp.status
                     ret_resp.error_type = resp.reason
                     ret_resp._content = await resp.read()
-                    
                     return ret_resp
 
         tasks = []
@@ -289,6 +335,11 @@ class BbRest:
         
         resp = self.session.send(prepped)
         ret_resp = resp
+        
+        try:
+            cur_resp = resp.json()
+        except json.JSONDecodeError:
+            return resp
 
         try:
             cur_resp = resp.json()
@@ -375,6 +426,31 @@ class BbRest:
         call_str = f"""You've used {used_calls} REST calls so far.\nYou have {calls_perc:.2f}% left until {reset_time.slang_time()}\nAfter that, they should reset"""
         print(call_str)
 
+    def get_auth_url(self, scope='read'):
+        #Not sure why, but the first call returns a different URL that breaks. 
+        #Only on the second call do you get the right auth URL
+        r = self.AuthorizationCode(params={
+                                            'redirect_uri':'https://localhost/',
+                                            'response_type':'code', 
+                                            'client_id':self.__key, 
+                                            'scope':scope,
+                                            'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'
+                                        },
+                                        sync=True
+        )
+        if 'new_loc' not in r.url:
+            r = self.AuthorizationCode(params={
+                                            'redirect_uri':'https://localhost/',
+                                            'response_type':'code', 
+                                            'client_id':self.__key, 
+                                            'scope':scope,
+                                            'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'
+                                        },
+                                        sync=True
+            )
+        return r.url
+
+        
 
 def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwargs):
         if userId:
