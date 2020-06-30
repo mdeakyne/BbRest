@@ -9,7 +9,6 @@ from aiohttp import web
 import urllib
 import urllib.parse as urlparse
 import re
-from selenium import webdriver
 
 with open('ent_map.json','r') as fp:
     ent_map = json.load(fp)
