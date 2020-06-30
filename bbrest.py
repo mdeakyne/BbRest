@@ -20,7 +20,7 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url, headers=None, user='', pwd='', scope='read'):
+    def __init__(self, key, secret, url, headers=None, code='', scope='read'):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
@@ -101,57 +101,13 @@ class BbRest:
         self.supported_functions()
         self.method_generator()
 
-        if user:
-            from splinter import Browser
+        if code:
             r = self.AuthorizationCode(params={'redirect_uri':'https://localhost/',
                                         'response_type':'code', 
                                         'client_id':self.__key, 
                                         'scope':scope,
                                         'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'})
-            options = webdriver.ChromeOptions()
-            options.add_argument('headless')
-            driver = webdriver.Chrome(chrome_options=options)
-
-            driver.get(r.url)
-            
-            request_cookies_browser = driver.get_cookies()
-
-            s = requests.Session()
-            c = [s.cookies.set(c['name'], c['value']) for c in request_cookies_browser]
-
-            res = s.get(r.url)
-            nonceHTML = res.content.decode()
-            pattern = 'nonce.*value.*.([a-f0-9\-]{36})'
-
-            nonceList = re.findall(pattern, nonceHTML)
-            nonceValue = nonceList[0]
-
-            login_data = {'action':'login', 'login':'Login', 
-                  'user_id':user,
-                  'password':pwd, 
-                  'blackboard.platform.security.NonceUtil.nonce':nonceValue,
-                  'new_loc':'/webapps/api-gateway/oauth2/authorizationcode?response_type=code&client_id=d279753a-8319-4910-8b27-0ed5de84bcaf&redirect_uri=https%3A%2F%2Flocalhost%2F&scope=read&state=DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'}
-            
-            resp = s.post(r.url, data=login_data)
-            
-            dict_resp_cookies = resp.cookies.get_dict()
-            response_cookies_browser = [{'name':name, 'value':value} for name, value in dict_resp_cookies.items()]
-            c = [driver.add_cookie(c) for c in response_cookies_browser]
-
-            driver.get(resp.url)
-            print(resp.url)
-            url = driver.current_url
-            if 'code=' in url:
-                #print(url)
-                params = urlparse.parse_qs(urlparse.urlparse(url).query)
-                code = params['code'][0]
-                driver.quit()
-
-            else:
-                print('expected code in url')
-                print(url)
-                return
-
+                            
             r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
                      params = {'code':code, 'redirect_uri':'https://localhost/'},
                      data={'grant_type':'authorization_code'},
@@ -163,7 +119,7 @@ class BbRest:
                 session.headers.update({"Authorization":f"Bearer {token}"})
                 self.expiration_epoch = maya.now() + r.json()["expires_in"]
                 self.user = r.json()['user_id']
-                print(r.json())
+            
             else:
                 print('Authorization failed, check your key, secret, url and login info')
                 return
@@ -257,6 +213,9 @@ class BbRest:
             if functions[function]['method'][0] == 'p':
                 def_params.append('payload= {}')
                 params.append('payload= payload')
+                def_params.append('params= {}')
+                params.append('params= params')
+
             
             if functions[function]['method'] == 'get':
                 def_params.append('params= {}')
@@ -467,6 +426,31 @@ class BbRest:
         #weird fomatting issue with f-strings, didn't want to display tabs.
         call_str = f"""You've used {used_calls} REST calls so far.\nYou have {calls_perc:.2f}% left until {reset_time.slang_time()}\nAfter that, they should reset"""
         print(call_str)
+
+    def get_auth_url(self, scope='read'):
+        #Not sure why, but the first call returns a different URL that breaks. 
+        #Only on the second call do you get the right auth URL
+        r = self.AuthorizationCode(params={
+                                            'redirect_uri':'https://localhost/',
+                                            'response_type':'code', 
+                                            'client_id':self.__key, 
+                                            'scope':scope,
+                                            'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'
+                                        },
+                                        sync=True
+        )
+        if 'new_loc' not in r.url:
+            r = self.AuthorizationCode(params={
+                                            'redirect_uri':'https://localhost/',
+                                            'response_type':'code', 
+                                            'client_id':self.__key, 
+                                            'scope':scope,
+                                            'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'
+                                        },
+                                        sync=True
+            )
+        return r.url
+
         
 
 def clean_kwargs(courseId=None, userId=None, columnId=None, groupId=None, **kwargs):
