@@ -425,7 +425,6 @@ class BbRest:
             self.session.headers.update({"Authorization": f"Bearer {token}"})
             self.expiration_epoch = maya.now() + expires
             self.token_info = token_info
-            self.redirect_uri = redirect_uri
         else:
             print(r.json())
 
