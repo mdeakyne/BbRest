@@ -19,7 +19,7 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url, headers=None, code='', scope='read', redirect_uri='https://localhost/'):
+    def __init__(self, key, secret, url, headers=None, code='', redirect_uri='https://localhost/'):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
@@ -34,16 +34,27 @@ class BbRest:
             session.headers.update(self.__headers)
 
         #Sends a post to get the authentication token
-        r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
+        if code:
+            r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
+                     params = {'code':code, 'redirect_uri': redirect_uri},
+                     data={'grant_type':'authorization_code'},
+                     auth=(self.__key, self.__secret))
+
+            #Adds the token to the headers for future requests.
+        else:    
+            r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
                      data=payload,
                      auth=(self.__key, self.__secret))
 
         #Adds the token to the headers for future requests.
         if r.status_code == 200:
-            token = r.json()["access_token"]
-            session.headers.update({"Authorization":f"Bearer {token}"})
-            self.expiration_epoch = maya.now() + r.json()["expires_in"]
+                token_info = token = r.json()
+                token = token_info.get('acess_token','')
+                expires = token_info.get('expires_in','')
 
+                session.headers.update({"Authorization":f"Bearer {token}"})
+                self.expiration_epoch = maya.now() + expires
+                self.token_info = token_info
         else:
             print('Authorization failed, check your key, secret and url')
             return
@@ -99,30 +110,7 @@ class BbRest:
         self.__all_functions = functions
         self.supported_functions()
         self.method_generator()
-
-        if code:
-            r = self.AuthorizationCode(params={'redirect_uri': redirect_uri,
-                                        'response_type':'code', 
-                                        'client_id':self.__key, 
-                                        'scope':scope,
-                                        'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'})
-                            
-            r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
-                     params = {'code':code, 'redirect_uri': redirect_uri},
-                     data={'grant_type':'authorization_code'},
-                     auth=(self.__key, self.__secret))
-
-            #Adds the token to the headers for future requests.
-            if r.status_code == 200:
-                token = r.json()["access_token"]
-                session.headers.update({"Authorization":f"Bearer {token}"})
-                self.expiration_epoch = maya.now() + r.json()["expires_in"]
-                self.user = r.json()['user_id']
-            
-            else:
-                print('Authorization failed, check your key, secret, url and login info')
-                return
-
+        
     def is_supported(self, function):
         if not function['version']:
             return False
