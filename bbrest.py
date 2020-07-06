@@ -395,7 +395,7 @@ class BbRest:
     def refresh_token(self):
         data = {}
         params = {}
-        auth = ()
+        auth = (self.__key, self.__secret)
 
         if "user_id" in self.token_info:
             if "refresh_token" in self.token_info:
@@ -409,7 +409,6 @@ class BbRest:
                 return
         else:
             data = {"grant_type": "client_credentials"}
-            auth = (self.__key, self.__secret)
 
         r = self.session.post(
             f"{self.__url}/learn/api/public/v1/oauth2/token",
@@ -423,10 +422,12 @@ class BbRest:
             token = token_info.get("access_token", "")
             expires = token_info.get("expires_in", "")
 
-            session.headers.update({"Authorization": f"Bearer {token}"})
+            self.session.headers.update({"Authorization": f"Bearer {token}"})
             self.expiration_epoch = maya.now() + expires
             self.token_info = token_info
             self.redirect_uri = redirect_uri
+        else:
+            print(r.json())
 
     def expiration(self):
         return self.expiration_epoch.slang_time()
