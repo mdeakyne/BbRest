@@ -19,6 +19,7 @@ ipython = "^7.2"
 requests-oauthlib = "^1.2"
 splinter = "*"
 ipyauth = "^0.2.6"
+black = "^19.10b0"
 
 
 [build-system]
