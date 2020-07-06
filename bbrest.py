@@ -19,7 +19,7 @@ class BbRest:
     version = ''
     functions = {}
 
-    def __init__(self, key, secret, url, headers=None, code='', scope='read'):
+    def __init__(self, key, secret, url, headers=None, code='', scope='read', redirect_uri='https://localhost/'):
         #these variables are accessible in the class, but not externally.
         self.__key = key
         self.__secret = secret
@@ -101,14 +101,14 @@ class BbRest:
         self.method_generator()
 
         if code:
-            r = self.AuthorizationCode(params={'redirect_uri':'https://localhost/',
+            r = self.AuthorizationCode(params={'redirect_uri': redirect_uri,
                                         'response_type':'code', 
                                         'client_id':self.__key, 
                                         'scope':scope,
                                         'state':'DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0'})
                             
             r = session.post(f"{self.__url}/learn/api/public/v1/oauth2/token",
-                     params = {'code':code, 'redirect_uri':'https://localhost/'},
+                     params = {'code':code, 'redirect_uri': redirect_uri},
                      data={'grant_type':'authorization_code'},
                      auth=(self.__key, self.__secret))
 
@@ -426,11 +426,11 @@ class BbRest:
         call_str = f"""You've used {used_calls} REST calls so far.\nYou have {calls_perc:.2f}% left until {reset_time.slang_time()}\nAfter that, they should reset"""
         print(call_str)
 
-    def get_auth_url(self, scope='read'):
+    def get_auth_url(self, scope='read', redirect_uri='https://localhost/'):
         #Not sure why, but the first call returns a different URL that breaks. 
         #Only on the second call do you get the right auth URL
         r = self.AuthorizationCode(params={
-                                            'redirect_uri':'https://localhost/',
+                                            'redirect_uri': redirect_uri,
                                             'response_type':'code', 
                                             'client_id':self.__key, 
                                             'scope':scope,
@@ -440,7 +440,7 @@ class BbRest:
         )
         if 'new_loc' not in r.url:
             r = self.AuthorizationCode(params={
-                                            'redirect_uri':'https://localhost/',
+                                            'redirect_uri': redirect_uri,
                                             'response_type':'code', 
                                             'client_id':self.__key, 
                                             'scope':scope,
