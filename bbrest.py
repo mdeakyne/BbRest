@@ -10,7 +10,7 @@ import urllib
 import urllib.parse as urlparse
 import re
 
-from permissions import ent_map
+
 
 
 class BbRest:
@@ -31,6 +31,13 @@ class BbRest:
         # Authenticate the session
         session = requests.Session()
         payload = {"grant_type": "client_credentials"}
+
+        try:
+            with open('./ent_map.json', 'r') as f:
+                ent_map = json.load(f)
+        except:
+            ent_map = {}
+            #print("Skipped entitlement setup")
 
         if self.__headers:
             session.headers.update(self.__headers)
