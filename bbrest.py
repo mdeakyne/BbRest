@@ -10,8 +10,7 @@ import urllib
 import urllib.parse as urlparse
 import re
 
-with open("ent_map.json", "r") as fp:
-    ent_map = json.load(fp)
+from permissions import ent_map
 
 
 class BbRest:
