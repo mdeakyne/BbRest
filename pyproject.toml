@@ -1,9 +1,11 @@
 [tool.poetry]
 name = "bbrest"
-version = "0.3.8-alpha4"
+version = "0.4.7"
 description = "Blackboard REST API for Humans"
 authors = ["Matt Deakyne <m.d@ku.edu>"]
 readme = 'README.md'
+include = ["ent_map.json"]
+
 
 [tool.poetry.dependencies]
 python = "^3.6"
@@ -19,6 +21,7 @@ ipython = "^7.2"
 requests-oauthlib = "^1.2"
 splinter = "*"
 ipyauth = "^0.2.6"
+black = "^19.10b0"
 
 
 [build-system]
