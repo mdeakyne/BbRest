@@ -9,7 +9,7 @@ from aiohttp import web
 import urllib
 import urllib.parse as urlparse
 import re
-
+import uuid
 
 
 
@@ -455,9 +455,13 @@ class BbRest:
         call_str = f"""You've used {used_calls} REST calls so far.\nYou have {calls_perc:.2f}% left until {reset_time.slang_time()}\nAfter that, they should reset"""
         print(call_str)
 
-    def get_auth_url(self, scope="read", redirect_uri="https://localhost/", state="DC1067EE-63B9-40FE-A0AD-B9AC069BF4B0"):
+    def get_auth_url(self, scope="read", redirect_uri="https://localhost/", state=None):
         # Not sure why, but the first call returns a different URL that breaks.
         # Only on the second call do you get the right auth URL
+        #
+        if not state:
+            state = str(uuid.uuid1())
+        
         r = self.AuthorizationCode(
             params={
                 "redirect_uri": redirect_uri,
