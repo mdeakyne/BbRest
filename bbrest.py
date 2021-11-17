@@ -93,7 +93,7 @@ class BbRest:
         # or retrieve from the swagger_json definitions
 
         swagger_json = requests.get(
-            f" https://devportal-docstore.s3.amazonaws.com/learn-swagger.json"
+            f"https://devportal-docstore.s3.amazonaws.com/learn-swagger.json"
         ).json()
         p = r"\d+.\d+.\d+"
         q = r"[A-Za-z]+\.[A-Za-z]+\.[A-Za-z]+\.?[A-Za-z]*\.?[A-Za-z]*"
