@@ -17,7 +17,7 @@ selenium = "*"
 
 [tool.poetry.dev-dependencies]
 jupyterlab = "*"
-ipython = "^7.2"
+ipython = "^7.16"
 requests-oauthlib = "^1.2"
 splinter = "*"
 ipyauth = "^0.2.6"
